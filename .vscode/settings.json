@@ -5,6 +5,11 @@
         "ZEPHYR_BASE": "/workdir/external/zephyr",
         "PATH": "/opt/zephyr-venv/bin:${env:PATH}"
     },
+    "zephyr-ide.boardRoots": [
+        "${workspaceFolder}/boards",
+        "${env:ZEPHYR_BASE}/boards"
+    ],
+    "zephyr-ide.defaultBoard": "clicker4_stm32f7",
     "zephyr-ide.venv-folder": "/opt/zephyr-venv",
     "python.defaultInterpreterPath": "/opt/zephyr-venv/bin/python",
     "terminal.integrated.cwd": "/workdir",
