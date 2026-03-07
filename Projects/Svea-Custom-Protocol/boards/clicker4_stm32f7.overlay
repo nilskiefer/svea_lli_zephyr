@@ -12,7 +12,7 @@
 };
 
 &usart3 {
-    current-speed = <1000000>;
+    current-speed = <1500000>;
     dmas = <&dma1 3 4 STM32_DMA_PERIPH_TX STM32_DMA_FIFO_1_4>,
            <&dma1 1 4 STM32_DMA_PERIPH_RX STM32_DMA_FIFO_1_4>;
     dma-names = "tx", "rx";
