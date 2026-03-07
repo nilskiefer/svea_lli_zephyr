@@ -1,3 +1,5 @@
+#include <zephyr/dt-bindings/dma/stm32_dma.h>
+
 / {
     chosen {
         zephyr,console = &usart1;
@@ -7,4 +9,15 @@
     aliases {
         telemetry-uart = &usart3;
     };
+};
+
+&usart3 {
+    current-speed = <1000000>;
+    dmas = <&dma1 3 4 STM32_DMA_PERIPH_TX STM32_DMA_FIFO_1_4>,
+           <&dma1 1 4 STM32_DMA_PERIPH_RX STM32_DMA_FIFO_1_4>;
+    dma-names = "tx", "rx";
+};
+
+&dma1 {
+    status = "okay";
 };
