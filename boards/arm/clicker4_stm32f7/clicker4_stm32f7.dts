@@ -176,25 +176,6 @@
     };
 };
 
-/* CN1: OTG FS on PA11/PA12, VBUS sense on PA9 */
-&usbotg_fs {
-    status = "okay";
-    pinctrl-names = "default";
-    /* if your pinctrl header has vbus, keep it; otherwise drop that phandle */
-    pinctrl-0 = <&usb_otg_fs_dm_pa11 &usb_otg_fs_dp_pa12 &usb_otg_fs_vbus_pa9>;
-
-    zephyr_udc0: usb_device {
-        compatible = "zephyr,usb-device";
-        status = "okay";
-
-        cdc_acm_uart0: cdc_acm_uart0 {
-            compatible = "zephyr,cdc-acm-uart";
-            label = "CDC_ACM_0";
-            status = "okay";
-        };
-    };
-};
-
 &clk_hse {
     clock-frequency = <DT_FREQ_M(25)>;  /* 25MHz external crystal */
     status = "okay";
@@ -246,11 +227,17 @@
     };
 };
 
-/* USB OTG FS */
-&usbotg_fs {
+/* USB OTG FS (UDC + CDC ACM UART child for USB device-next stack) */
+zephyr_udc0: &usbotg_fs {
     pinctrl-0 = <&usb_otg_fs_dm_pa11 &usb_otg_fs_dp_pa12>;
     pinctrl-names = "default";
     status = "okay";
+
+    cdc_acm_uart0: cdc_acm_uart0 {
+        compatible = "zephyr,cdc-acm-uart";
+        label = "CDC_ACM_0";
+        status = "okay";
+    };
 };
 
 /* UART1 (Console) - Connected to ST-Link VCP, is labelled UART3 on board for some reason*/

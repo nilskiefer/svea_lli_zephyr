@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+
+if BOARD_CLICKER4_STM32F7
+
+config GPIO
+	default y
+
+config CLOCK_CONTROL
+	default y
+
+config PINCTRL
+	default y
+
+endif # BOARD_CLICKER4_STM32F7

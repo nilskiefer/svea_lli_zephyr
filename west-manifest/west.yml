@@ -6,7 +6,7 @@ manifest:
     - name: zephyr
       repo-path: zephyr
       remote: zephyrproject
-      revision: v4.1.0
+      revision: v4.3.0
       clone-depth: 1
       import:
         path-prefix: external
@@ -15,6 +15,7 @@ manifest:
           - hal_st
           - hal_stm32
           - cmsis
+          - cmsis_6
           - hal_tdk
           - segger
 
