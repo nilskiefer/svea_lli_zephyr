@@ -1,6 +1,7 @@
 #ifndef PROJECT_MESSAGES_H_
 #define PROJECT_MESSAGES_H_
 
+#include <stdbool.h>
 #include <stdint.h>
 
 struct heartbeat_msg {
@@ -11,69 +12,69 @@ struct heartbeat_msg {
 struct rc_command_msg {
     uint32_t t_ms;
     uint32_t seq;
-    int32_t steering;
-    int32_t throttle;
-    uint32_t high_gear;
-    uint32_t diff_lock;
-    uint32_t override_mode;
-    uint32_t connected;
+    int8_t steering;
+    int8_t throttle;
+    bool high_gear;
+    bool diff_lock;
+    bool override_mode;
+    bool connected;
 };
 
 struct lsm6dsox_msg {
     uint32_t t_ms;
     uint32_t seq;
-    int32_t ax_mg;
-    int32_t ay_mg;
-    int32_t az_mg;
-    int32_t gx_mdps;
-    int32_t gy_mdps;
-    int32_t gz_mdps;
-    int32_t temp_cdeg;
+    float ax_mg;
+    float ay_mg;
+    float az_mg;
+    float gx_mdps;
+    float gy_mdps;
+    float gz_mdps;
+    float temp_cdeg;
 };
 
 struct ads1115_msg {
     uint32_t t_ms;
     uint32_t seq;
-    int32_t ain0_mv;
-    int32_t ain1_mv;
-    int32_t ain2_mv;
-    int32_t ain3_mv;
+    float ain0_mv;
+    float ain1_mv;
+    float ain2_mv;
+    float ain3_mv;
 };
 
 struct ina3221_msg {
     uint32_t t_ms;
     uint32_t seq;
-    int32_t ch1_bus_mv;
-    int32_t ch1_current_ma;
-    int32_t ch1_power_mw;
-    int32_t ch2_bus_mv;
-    int32_t ch2_current_ma;
-    int32_t ch2_power_mw;
-    int32_t ch3_bus_mv;
-    int32_t ch3_current_ma;
-    int32_t ch3_power_mw;
+    float ch1_bus_mv;
+    float ch1_current_ma;
+    float ch1_power_mw;
+    float ch2_bus_mv;
+    float ch2_current_ma;
+    float ch2_power_mw;
+    float ch3_bus_mv;
+    float ch3_current_ma;
+    float ch3_power_mw;
 };
 
 struct bq76942_msg {
     uint32_t t_ms;
     uint32_t seq;
-    int32_t pack_mv;
-    int32_t pack_ma;
-    int32_t soc_deci_pct;
-    int32_t temp_cdeg;
-    int32_t cell_min_mv;
-    int32_t cell_avg_mv;
-    int32_t cell_max_mv;
-    int32_t error_flags;
+    float pack_mv;
+    float pack_ma;
+    float soc_pct;
+    float temp_cdeg;
+    float cell_min_mv;
+    float cell_avg_mv;
+    float cell_max_mv;
+    uint32_t error_flags;
 };
 
 struct ina226_msg {
     uint32_t t_ms;
     uint32_t seq;
-    int32_t bus_mv;
-    int32_t shunt_uv;
-    int32_t current_ma;
-    int32_t power_mw;
+    float bus_mv;
+    float shunt_uv;
+    float current_ma;
+    float power_mw;
 };
 
 #endif

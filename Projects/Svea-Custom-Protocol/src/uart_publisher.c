@@ -126,7 +126,7 @@ static __attribute__((unused)) bool cbor_put_bool(struct cbor_buf *b, bool v) {
     return cbor_put_byte(b, (uint8_t)((7U << 5) | (v ? 21U : 20U)));
 }
 
-static __attribute__((unused)) bool cbor_put_float32(struct cbor_buf *b, float v) {
+static bool cbor_put_float32(struct cbor_buf *b, float v) {
     uint32_t bits;
     memcpy(&bits, &v, sizeof(bits));
 
@@ -364,12 +364,12 @@ static bool encode_rc_command_msg(struct cbor_buf *b, const char *topic, const v
            cbor_put_tstr(b, "topic") && cbor_put_tstr(b, topic) &&
            cbor_put_tstr(b, "t_ms") && cbor_put_uint32(b, m->t_ms) &&
            cbor_put_tstr(b, "seq") && cbor_put_uint32(b, m->seq) &&
-           cbor_put_tstr(b, "steering") && cbor_put_int32(b, m->steering) &&
-           cbor_put_tstr(b, "throttle") && cbor_put_int32(b, m->throttle) &&
-           cbor_put_tstr(b, "high_gear") && cbor_put_uint32(b, m->high_gear) &&
-           cbor_put_tstr(b, "diff_lock") && cbor_put_uint32(b, m->diff_lock) &&
-           cbor_put_tstr(b, "override_mode") && cbor_put_uint32(b, m->override_mode) &&
-           cbor_put_tstr(b, "connected") && cbor_put_uint32(b, m->connected);
+           cbor_put_tstr(b, "steering") && cbor_put_int32(b, (int32_t)m->steering) &&
+           cbor_put_tstr(b, "throttle") && cbor_put_int32(b, (int32_t)m->throttle) &&
+           cbor_put_tstr(b, "high_gear") && cbor_put_bool(b, m->high_gear) &&
+           cbor_put_tstr(b, "diff_lock") && cbor_put_bool(b, m->diff_lock) &&
+           cbor_put_tstr(b, "override_mode") && cbor_put_bool(b, m->override_mode) &&
+           cbor_put_tstr(b, "connected") && cbor_put_bool(b, m->connected);
 }
 
 static bool encode_lsm6dsox_msg(struct cbor_buf *b, const char *topic, const void *msg) {
@@ -379,13 +379,13 @@ static bool encode_lsm6dsox_msg(struct cbor_buf *b, const char *topic, const voi
            cbor_put_tstr(b, "topic") && cbor_put_tstr(b, topic) &&
            cbor_put_tstr(b, "t_ms") && cbor_put_uint32(b, m->t_ms) &&
            cbor_put_tstr(b, "seq") && cbor_put_uint32(b, m->seq) &&
-           cbor_put_tstr(b, "ax_mg") && cbor_put_int32(b, m->ax_mg) &&
-           cbor_put_tstr(b, "ay_mg") && cbor_put_int32(b, m->ay_mg) &&
-           cbor_put_tstr(b, "az_mg") && cbor_put_int32(b, m->az_mg) &&
-           cbor_put_tstr(b, "gx_mdps") && cbor_put_int32(b, m->gx_mdps) &&
-           cbor_put_tstr(b, "gy_mdps") && cbor_put_int32(b, m->gy_mdps) &&
-           cbor_put_tstr(b, "gz_mdps") && cbor_put_int32(b, m->gz_mdps) &&
-           cbor_put_tstr(b, "temp_cdeg") && cbor_put_int32(b, m->temp_cdeg);
+           cbor_put_tstr(b, "ax_mg") && cbor_put_float32(b, m->ax_mg) &&
+           cbor_put_tstr(b, "ay_mg") && cbor_put_float32(b, m->ay_mg) &&
+           cbor_put_tstr(b, "az_mg") && cbor_put_float32(b, m->az_mg) &&
+           cbor_put_tstr(b, "gx_mdps") && cbor_put_float32(b, m->gx_mdps) &&
+           cbor_put_tstr(b, "gy_mdps") && cbor_put_float32(b, m->gy_mdps) &&
+           cbor_put_tstr(b, "gz_mdps") && cbor_put_float32(b, m->gz_mdps) &&
+           cbor_put_tstr(b, "temp_cdeg") && cbor_put_float32(b, m->temp_cdeg);
 }
 
 static bool encode_ads1115_msg(struct cbor_buf *b, const char *topic, const void *msg) {
@@ -395,10 +395,10 @@ static bool encode_ads1115_msg(struct cbor_buf *b, const char *topic, const void
            cbor_put_tstr(b, "topic") && cbor_put_tstr(b, topic) &&
            cbor_put_tstr(b, "t_ms") && cbor_put_uint32(b, m->t_ms) &&
            cbor_put_tstr(b, "seq") && cbor_put_uint32(b, m->seq) &&
-           cbor_put_tstr(b, "ain0_mv") && cbor_put_int32(b, m->ain0_mv) &&
-           cbor_put_tstr(b, "ain1_mv") && cbor_put_int32(b, m->ain1_mv) &&
-           cbor_put_tstr(b, "ain2_mv") && cbor_put_int32(b, m->ain2_mv) &&
-           cbor_put_tstr(b, "ain3_mv") && cbor_put_int32(b, m->ain3_mv);
+           cbor_put_tstr(b, "ain0_mv") && cbor_put_float32(b, m->ain0_mv) &&
+           cbor_put_tstr(b, "ain1_mv") && cbor_put_float32(b, m->ain1_mv) &&
+           cbor_put_tstr(b, "ain2_mv") && cbor_put_float32(b, m->ain2_mv) &&
+           cbor_put_tstr(b, "ain3_mv") && cbor_put_float32(b, m->ain3_mv);
 }
 
 static bool encode_ina3221_msg(struct cbor_buf *b, const char *topic, const void *msg) {
@@ -408,15 +408,15 @@ static bool encode_ina3221_msg(struct cbor_buf *b, const char *topic, const void
            cbor_put_tstr(b, "topic") && cbor_put_tstr(b, topic) &&
            cbor_put_tstr(b, "t_ms") && cbor_put_uint32(b, m->t_ms) &&
            cbor_put_tstr(b, "seq") && cbor_put_uint32(b, m->seq) &&
-           cbor_put_tstr(b, "ch1_bus_mv") && cbor_put_int32(b, m->ch1_bus_mv) &&
-           cbor_put_tstr(b, "ch1_current_ma") && cbor_put_int32(b, m->ch1_current_ma) &&
-           cbor_put_tstr(b, "ch1_power_mw") && cbor_put_int32(b, m->ch1_power_mw) &&
-           cbor_put_tstr(b, "ch2_bus_mv") && cbor_put_int32(b, m->ch2_bus_mv) &&
-           cbor_put_tstr(b, "ch2_current_ma") && cbor_put_int32(b, m->ch2_current_ma) &&
-           cbor_put_tstr(b, "ch2_power_mw") && cbor_put_int32(b, m->ch2_power_mw) &&
-           cbor_put_tstr(b, "ch3_bus_mv") && cbor_put_int32(b, m->ch3_bus_mv) &&
-           cbor_put_tstr(b, "ch3_current_ma") && cbor_put_int32(b, m->ch3_current_ma) &&
-           cbor_put_tstr(b, "ch3_power_mw") && cbor_put_int32(b, m->ch3_power_mw);
+           cbor_put_tstr(b, "ch1_bus_mv") && cbor_put_float32(b, m->ch1_bus_mv) &&
+           cbor_put_tstr(b, "ch1_current_ma") && cbor_put_float32(b, m->ch1_current_ma) &&
+           cbor_put_tstr(b, "ch1_power_mw") && cbor_put_float32(b, m->ch1_power_mw) &&
+           cbor_put_tstr(b, "ch2_bus_mv") && cbor_put_float32(b, m->ch2_bus_mv) &&
+           cbor_put_tstr(b, "ch2_current_ma") && cbor_put_float32(b, m->ch2_current_ma) &&
+           cbor_put_tstr(b, "ch2_power_mw") && cbor_put_float32(b, m->ch2_power_mw) &&
+           cbor_put_tstr(b, "ch3_bus_mv") && cbor_put_float32(b, m->ch3_bus_mv) &&
+           cbor_put_tstr(b, "ch3_current_ma") && cbor_put_float32(b, m->ch3_current_ma) &&
+           cbor_put_tstr(b, "ch3_power_mw") && cbor_put_float32(b, m->ch3_power_mw);
 }
 
 static bool encode_bq76942_msg(struct cbor_buf *b, const char *topic, const void *msg) {
@@ -426,13 +426,13 @@ static bool encode_bq76942_msg(struct cbor_buf *b, const char *topic, const void
            cbor_put_tstr(b, "topic") && cbor_put_tstr(b, topic) &&
            cbor_put_tstr(b, "t_ms") && cbor_put_uint32(b, m->t_ms) &&
            cbor_put_tstr(b, "seq") && cbor_put_uint32(b, m->seq) &&
-           cbor_put_tstr(b, "pack_mv") && cbor_put_int32(b, m->pack_mv) &&
-           cbor_put_tstr(b, "pack_ma") && cbor_put_int32(b, m->pack_ma) &&
-           cbor_put_tstr(b, "soc_deci_pct") && cbor_put_int32(b, m->soc_deci_pct) &&
-           cbor_put_tstr(b, "temp_cdeg") && cbor_put_int32(b, m->temp_cdeg) &&
-           cbor_put_tstr(b, "cell_min_mv") && cbor_put_int32(b, m->cell_min_mv) &&
-           cbor_put_tstr(b, "cell_avg_mv") && cbor_put_int32(b, m->cell_avg_mv) &&
-           cbor_put_tstr(b, "cell_max_mv") && cbor_put_int32(b, m->cell_max_mv) &&
+           cbor_put_tstr(b, "pack_mv") && cbor_put_float32(b, m->pack_mv) &&
+           cbor_put_tstr(b, "pack_ma") && cbor_put_float32(b, m->pack_ma) &&
+           cbor_put_tstr(b, "soc_pct") && cbor_put_float32(b, m->soc_pct) &&
+           cbor_put_tstr(b, "temp_cdeg") && cbor_put_float32(b, m->temp_cdeg) &&
+           cbor_put_tstr(b, "cell_min_mv") && cbor_put_float32(b, m->cell_min_mv) &&
+           cbor_put_tstr(b, "cell_avg_mv") && cbor_put_float32(b, m->cell_avg_mv) &&
+           cbor_put_tstr(b, "cell_max_mv") && cbor_put_float32(b, m->cell_max_mv) &&
            cbor_put_tstr(b, "error_flags") && cbor_put_uint32(b, (uint32_t)m->error_flags);
 }
 
@@ -443,10 +443,10 @@ static bool encode_ina226_msg(struct cbor_buf *b, const char *topic, const void 
            cbor_put_tstr(b, "topic") && cbor_put_tstr(b, topic) &&
            cbor_put_tstr(b, "t_ms") && cbor_put_uint32(b, m->t_ms) &&
            cbor_put_tstr(b, "seq") && cbor_put_uint32(b, m->seq) &&
-           cbor_put_tstr(b, "bus_mv") && cbor_put_int32(b, m->bus_mv) &&
-           cbor_put_tstr(b, "shunt_uv") && cbor_put_int32(b, m->shunt_uv) &&
-           cbor_put_tstr(b, "current_ma") && cbor_put_int32(b, m->current_ma) &&
-           cbor_put_tstr(b, "power_mw") && cbor_put_int32(b, m->power_mw);
+           cbor_put_tstr(b, "bus_mv") && cbor_put_float32(b, m->bus_mv) &&
+           cbor_put_tstr(b, "shunt_uv") && cbor_put_float32(b, m->shunt_uv) &&
+           cbor_put_tstr(b, "current_ma") && cbor_put_float32(b, m->current_ma) &&
+           cbor_put_tstr(b, "power_mw") && cbor_put_float32(b, m->power_mw);
 }
 
 static void uart_pub_thread_fn(void *a, void *b, void *c) {

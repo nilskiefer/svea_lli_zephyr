@@ -63,13 +63,13 @@ static void lsm6dsox_thread_fn(void *a, void *b, void *c) {
 
         msg.t_ms = (uint32_t)k_uptime_get();
         msg.seq = seq;
-        msg.ax_mg = phase * 4;
-        msg.ay_mg = -phase * 3;
-        msg.az_mg = 1000 + (phase / 4);
-        msg.gx_mdps = phase * 20;
-        msg.gy_mdps = (200 - phase) * 10;
-        msg.gz_mdps = -phase * 12;
-        msg.temp_cdeg = 2550 + (phase / 8);
+        msg.ax_mg = (float)(phase * 4);
+        msg.ay_mg = (float)(-phase * 3);
+        msg.az_mg = (float)(1000 + (phase / 4));
+        msg.gx_mdps = (float)(phase * 20);
+        msg.gy_mdps = (float)((200 - phase) * 10);
+        msg.gz_mdps = (float)(-phase * 12);
+        msg.temp_cdeg = (float)(2550 + (phase / 8));
 
         (void)zbus_chan_pub(&lsm6dsox_chan, &msg, K_MSEC(5));
         seq++;
@@ -91,10 +91,10 @@ static void ads1115_thread_fn(void *a, void *b, void *c) {
 
         msg.t_ms = (uint32_t)k_uptime_get();
         msg.seq = seq;
-        msg.ain0_mv = 1650 + (phase * 8);
-        msg.ain1_mv = 1200 + (phase * 5);
-        msg.ain2_mv = 2400 - (phase * 4);
-        msg.ain3_mv = 3300 - (phase * 2);
+        msg.ain0_mv = (float)(1650 + (phase * 8));
+        msg.ain1_mv = (float)(1200 + (phase * 5));
+        msg.ain2_mv = (float)(2400 - (phase * 4));
+        msg.ain3_mv = (float)(3300 - (phase * 2));
 
         (void)zbus_chan_pub(&ads1115_chan, &msg, K_MSEC(5));
         seq++;
@@ -117,27 +117,27 @@ static void ina3221_thread_fn(void *a, void *b, void *c) {
 
         a_msg.t_ms = (uint32_t)k_uptime_get();
         a_msg.seq = seq;
-        a_msg.ch1_bus_mv = 24000 + ripple * 4;
-        a_msg.ch1_current_ma = 1400 + ripple * 6;
-        a_msg.ch1_power_mw = (a_msg.ch1_bus_mv * a_msg.ch1_current_ma) / 1000;
-        a_msg.ch2_bus_mv = 12000 + ripple * 3;
-        a_msg.ch2_current_ma = 700 + ripple * 4;
-        a_msg.ch2_power_mw = (a_msg.ch2_bus_mv * a_msg.ch2_current_ma) / 1000;
-        a_msg.ch3_bus_mv = 5000 + ripple * 2;
-        a_msg.ch3_current_ma = 380 + ripple * 2;
-        a_msg.ch3_power_mw = (a_msg.ch3_bus_mv * a_msg.ch3_current_ma) / 1000;
+        a_msg.ch1_bus_mv = (float)(24000 + ripple * 4);
+        a_msg.ch1_current_ma = (float)(1400 + ripple * 6);
+        a_msg.ch1_power_mw = (a_msg.ch1_bus_mv * a_msg.ch1_current_ma) / 1000.0f;
+        a_msg.ch2_bus_mv = (float)(12000 + ripple * 3);
+        a_msg.ch2_current_ma = (float)(700 + ripple * 4);
+        a_msg.ch2_power_mw = (a_msg.ch2_bus_mv * a_msg.ch2_current_ma) / 1000.0f;
+        a_msg.ch3_bus_mv = (float)(5000 + ripple * 2);
+        a_msg.ch3_current_ma = (float)(380 + ripple * 2);
+        a_msg.ch3_power_mw = (a_msg.ch3_bus_mv * a_msg.ch3_current_ma) / 1000.0f;
 
         b_msg.t_ms = a_msg.t_ms;
         b_msg.seq = seq;
-        b_msg.ch1_bus_mv = 24000 + ripple * 5;
-        b_msg.ch1_current_ma = 900 + ripple * 3;
-        b_msg.ch1_power_mw = (b_msg.ch1_bus_mv * b_msg.ch1_current_ma) / 1000;
-        b_msg.ch2_bus_mv = 12000 + ripple * 2;
-        b_msg.ch2_current_ma = 620 + ripple * 3;
-        b_msg.ch2_power_mw = (b_msg.ch2_bus_mv * b_msg.ch2_current_ma) / 1000;
-        b_msg.ch3_bus_mv = 5000 + ripple;
-        b_msg.ch3_current_ma = 310 + ripple * 2;
-        b_msg.ch3_power_mw = (b_msg.ch3_bus_mv * b_msg.ch3_current_ma) / 1000;
+        b_msg.ch1_bus_mv = (float)(24000 + ripple * 5);
+        b_msg.ch1_current_ma = (float)(900 + ripple * 3);
+        b_msg.ch1_power_mw = (b_msg.ch1_bus_mv * b_msg.ch1_current_ma) / 1000.0f;
+        b_msg.ch2_bus_mv = (float)(12000 + ripple * 2);
+        b_msg.ch2_current_ma = (float)(620 + ripple * 3);
+        b_msg.ch2_power_mw = (b_msg.ch2_bus_mv * b_msg.ch2_current_ma) / 1000.0f;
+        b_msg.ch3_bus_mv = (float)(5000 + ripple);
+        b_msg.ch3_current_ma = (float)(310 + ripple * 2);
+        b_msg.ch3_power_mw = (b_msg.ch3_bus_mv * b_msg.ch3_current_ma) / 1000.0f;
 
         (void)zbus_chan_pub(&ina3221_a_chan, &a_msg, K_MSEC(5));
         (void)zbus_chan_pub(&ina3221_b_chan, &b_msg, K_MSEC(5));
@@ -161,13 +161,13 @@ static void bq76942_thread_fn(void *a, void *b, void *c) {
 
         msg.t_ms = (uint32_t)k_uptime_get();
         msg.seq = seq;
-        msg.pack_mv = 24000 + phase * 6;
-        msg.pack_ma = 1200 + phase * 5;
-        msg.soc_deci_pct = 820 - (int32_t)(seq % 20U);
-        msg.temp_cdeg = 2550 + phase * 2;
-        msg.cell_min_mv = 3950 + phase;
-        msg.cell_avg_mv = 4010 + phase;
-        msg.cell_max_mv = 4080 + phase;
+        msg.pack_mv = (float)(24000 + phase * 6);
+        msg.pack_ma = (float)(1200 + phase * 5);
+        msg.soc_pct = 82.0f - (float)(seq % 20U) * 0.1f;
+        msg.temp_cdeg = (float)(2550 + phase * 2);
+        msg.cell_min_mv = (float)(3950 + phase);
+        msg.cell_avg_mv = (float)(4010 + phase);
+        msg.cell_max_mv = (float)(4080 + phase);
         msg.error_flags = (seq % 300U == 0U) ? 0x00000004 : 0;
 
         (void)zbus_chan_pub(&bq76942_chan, &msg, K_MSEC(5));
@@ -191,17 +191,17 @@ static void ina226_thread_fn(void *a, void *b, void *c) {
 
         a_msg.t_ms = (uint32_t)k_uptime_get();
         a_msg.seq = seq;
-        a_msg.bus_mv = 5000 + ripple * 3;
-        a_msg.shunt_uv = 10000 + ripple * 40;
-        a_msg.current_ma = 1800 + ripple * 8;
-        a_msg.power_mw = (a_msg.bus_mv * a_msg.current_ma) / 1000;
+        a_msg.bus_mv = (float)(5000 + ripple * 3);
+        a_msg.shunt_uv = (float)(10000 + ripple * 40);
+        a_msg.current_ma = (float)(1800 + ripple * 8);
+        a_msg.power_mw = (a_msg.bus_mv * a_msg.current_ma) / 1000.0f;
 
         b_msg.t_ms = a_msg.t_ms;
         b_msg.seq = seq;
-        b_msg.bus_mv = 3300 + ripple * 2;
-        b_msg.shunt_uv = 6500 + ripple * 35;
-        b_msg.current_ma = 900 + ripple * 5;
-        b_msg.power_mw = (b_msg.bus_mv * b_msg.current_ma) / 1000;
+        b_msg.bus_mv = (float)(3300 + ripple * 2);
+        b_msg.shunt_uv = (float)(6500 + ripple * 35);
+        b_msg.current_ma = (float)(900 + ripple * 5);
+        b_msg.power_mw = (b_msg.bus_mv * b_msg.current_ma) / 1000.0f;
 
         (void)zbus_chan_pub(&ina226_a_chan, &a_msg, K_MSEC(5));
         (void)zbus_chan_pub(&ina226_b_chan, &b_msg, K_MSEC(5));
@@ -242,11 +242,11 @@ static void rc_command_thread_fn(void *a, void *b, void *c) {
 
         msg.t_ms = (uint32_t)k_uptime_get();
         msg.seq = seq;
-        msg.steering = phase;
-        msg.throttle = (int32_t)((seq % 200U) - 100);
-        msg.high_gear = (seq / 200U) % 2U;
-        msg.diff_lock = (seq / 150U) % 2U;
-        msg.override_mode = (seq / 300U) % 3U;      /* 0=ROS, 1=MUTE, 2=REMOTE */
+        msg.steering = (int8_t)phase;
+        msg.throttle = (int8_t)((seq % 200U) - 100);
+        msg.high_gear = ((seq / 200U) % 2U) != 0U;
+        msg.diff_lock = ((seq / 150U) % 2U) != 0U;
+        msg.override_mode = ((seq / 300U) % 2U) != 0U;
         msg.connected = ((seq / 500U) % 10U) != 9U; /* drop link briefly */
 
         (void)zbus_chan_pub(&rc_command_chan, &msg, K_MSEC(5));

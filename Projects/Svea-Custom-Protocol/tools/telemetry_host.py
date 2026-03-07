@@ -98,15 +98,15 @@ def format_msg(msg: dict[str, Any]) -> str:
     if topic == "lsm6dsox":
         return (
             f"lsm6  t={t_ms:>8} seq={seq:>6} "
-            f"a=({msg.get('ax_mg', '-'):>5},{msg.get('ay_mg', '-'):>5},{msg.get('az_mg', '-'):>5}) mg "
-            f"g=({msg.get('gx_mdps', '-'):>6},{msg.get('gy_mdps', '-'):>6},{msg.get('gz_mdps', '-'):>6}) mdps "
-            f"T={msg.get('temp_cdeg', '-'):>5} cdeg"
+            f"a=({msg.get('ax_mg', 0.0):>6.1f},{msg.get('ay_mg', 0.0):>6.1f},{msg.get('az_mg', 0.0):>6.1f}) mg "
+            f"g=({msg.get('gx_mdps', 0.0):>7.1f},{msg.get('gy_mdps', 0.0):>7.1f},{msg.get('gz_mdps', 0.0):>7.1f}) mdps "
+            f"T={msg.get('temp_cdeg', 0.0):>6.1f} cdeg"
         )
     if topic == "ads1115":
         return (
             f"ads   t={t_ms:>8} seq={seq:>6} "
-            f"AIN=[{msg.get('ain0_mv', '-'):>5},{msg.get('ain1_mv', '-'):>5},"
-            f"{msg.get('ain2_mv', '-'):>5},{msg.get('ain3_mv', '-'):>5}] mV"
+            f"AIN=[{msg.get('ain0_mv', 0.0):>6.1f},{msg.get('ain1_mv', 0.0):>6.1f},"
+            f"{msg.get('ain2_mv', 0.0):>6.1f},{msg.get('ain3_mv', 0.0):>6.1f}] mV"
         )
     if topic == "rc_command":
         return (
@@ -118,28 +118,28 @@ def format_msg(msg: dict[str, Any]) -> str:
     if topic.startswith("ina3221"):
         return (
             f"{topic:8} t={t_ms:>8} seq={seq:>6} "
-            f"CH1=({msg.get('ch1_bus_mv', '-'):>5}mV,{msg.get('ch1_current_ma', '-'):>5}mA,{msg.get('ch1_power_mw', '-'):>6}mW) "
-            f"CH2=({msg.get('ch2_bus_mv', '-'):>5}mV,{msg.get('ch2_current_ma', '-'):>5}mA,{msg.get('ch2_power_mw', '-'):>6}mW) "
-            f"CH3=({msg.get('ch3_bus_mv', '-'):>5}mV,{msg.get('ch3_current_ma', '-'):>5}mA,{msg.get('ch3_power_mw', '-'):>6}mW)"
+            f"CH1=({msg.get('ch1_bus_mv', 0.0):>6.1f}mV,{msg.get('ch1_current_ma', 0.0):>6.1f}mA,{msg.get('ch1_power_mw', 0.0):>7.1f}mW) "
+            f"CH2=({msg.get('ch2_bus_mv', 0.0):>6.1f}mV,{msg.get('ch2_current_ma', 0.0):>6.1f}mA,{msg.get('ch2_power_mw', 0.0):>7.1f}mW) "
+            f"CH3=({msg.get('ch3_bus_mv', 0.0):>6.1f}mV,{msg.get('ch3_current_ma', 0.0):>6.1f}mA,{msg.get('ch3_power_mw', 0.0):>7.1f}mW)"
         )
     if topic.startswith("ina226"):
         return (
             f"{topic:8} t={t_ms:>8} seq={seq:>6} "
-            f"Vbus={msg.get('bus_mv', '-'):>6} mV "
-            f"Vshunt={msg.get('shunt_uv', '-'):>6} uV "
-            f"I={msg.get('current_ma', '-'):>6} mA "
-            f"P={msg.get('power_mw', '-'):>7} mW"
+            f"Vbus={msg.get('bus_mv', 0.0):>7.1f} mV "
+            f"Vshunt={msg.get('shunt_uv', 0.0):>7.1f} uV "
+            f"I={msg.get('current_ma', 0.0):>7.1f} mA "
+            f"P={msg.get('power_mw', 0.0):>8.1f} mW"
         )
     if topic == "bq76942":
         return (
             f"bq    t={t_ms:>8} seq={seq:>6} "
-            f"Vpack={msg.get('pack_mv', '-'):>6} mV "
-            f"Ipack={msg.get('pack_ma', '-'):>6} mA "
-            f"SoC={msg.get('soc_deci_pct', '-'):>4} d% "
-            f"T={msg.get('temp_cdeg', '-'):>5} cdeg "
-            f"cell(min/avg/max)=({msg.get('cell_min_mv', '-'):>4}/"
-            f"{msg.get('cell_avg_mv', '-'):>4}/"
-            f"{msg.get('cell_max_mv', '-'):>4})mV "
+            f"Vpack={msg.get('pack_mv', 0.0):>7.1f} mV "
+            f"Ipack={msg.get('pack_ma', 0.0):>7.1f} mA "
+            f"SoC={msg.get('soc_pct', 0.0):>5.1f}% "
+            f"T={msg.get('temp_cdeg', 0.0):>6.1f} cdeg "
+            f"cell(min/avg/max)=({msg.get('cell_min_mv', 0.0):>6.1f}/"
+            f"{msg.get('cell_avg_mv', 0.0):>6.1f}/"
+            f"{msg.get('cell_max_mv', 0.0):>6.1f})mV "
             f"flags=0x{int(msg.get('error_flags', 0)) & 0xFFFFFFFF:08X}"
         )
     return json.dumps(msg, separators=(",", ":"))
