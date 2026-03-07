@@ -10,8 +10,7 @@ target_include_directories(app PRIVATE include)
 target_sources(app PRIVATE
   src/main.c
   src/channels.c
-  src/imu_sensor.c
-  src/current_sensor.c
+  src/sensor_stubs.c
   src/uart_publisher.c
 )
 

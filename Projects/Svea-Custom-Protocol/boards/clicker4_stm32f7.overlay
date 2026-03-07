@@ -1,12 +1,10 @@
 / {
+    chosen {
+        zephyr,console = &usart1;
+        zephyr,shell-uart = &usart1;
+    };
+
     aliases {
         telemetry-uart = &usart3;
     };
-};
-
-&usart3 {
-    status = "okay";
-    pinctrl-0 = <&usart3_tx_pd8 &usart3_rx_pd9>;
-    pinctrl-names = "default";
-    current-speed = <1000000>;
 };

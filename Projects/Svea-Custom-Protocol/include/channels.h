@@ -5,9 +5,14 @@
 
 #include "messages.h"
 
-ZBUS_SUBSCRIBER_DECLARE(uart_pub_sub);
+ZBUS_OBS_DECLARE(uart_pub_sub);
 
-ZBUS_CHAN_DECLARE(imu_chan);
-ZBUS_CHAN_DECLARE(current_chan);
+ZBUS_CHAN_DECLARE(lsm6dsox_chan);
+ZBUS_CHAN_DECLARE(ads1115_chan);
+ZBUS_CHAN_DECLARE(ina3221_a_chan);
+ZBUS_CHAN_DECLARE(ina3221_b_chan);
+ZBUS_CHAN_DECLARE(bq76942_chan);
+ZBUS_CHAN_DECLARE(ina226_a_chan);
+ZBUS_CHAN_DECLARE(ina226_b_chan);
 
 #endif
