@@ -28,10 +28,19 @@ RUN apt-get update && \
         openocd \
         python3-venv \
         python3-tk \
+        zsh \
+        curl \
         && \
     apt-get clean -y && \
     apt-get autoremove --purge -y && \
     rm -rf /var/lib/apt/lists/*
+
+RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" -- \
+      --unattended --keep-zshrc && \
+    sed -i 's/^ZSH_THEME=.*/ZSH_THEME="robbyrussell"/' /root/.zshrc && \
+    sed -i 's/^plugins=(git)$/plugins=(git colored-man-pages colorize history-substring-search z)/' /root/.zshrc && \
+    grep -q 'source /etc/profile.d/zephyr-workspace.sh' /root/.zshrc || \
+      printf '\nsource /etc/profile.d/zephyr-workspace.sh\n' >> /root/.zshrc
 
 RUN printf '%s\n' \
     'export WEST_TOPDIR=/workdir' \
@@ -46,4 +55,4 @@ WORKDIR /workdir
 VOLUME /workdir
 
 # Set the default command to run when the container starts
-CMD ["/bin/bash"]
+CMD ["/usr/bin/zsh"]

@@ -9,7 +9,11 @@
     "source=zephyr-ccache,target=/root/.cache/ccache,type=volume"
   ],
   "runArgs": [
-    "--network=host"
+    "--network=host",
+    "-v",
+    "/dev:/dev",
+    "-v",
+    "/run/udev:/run/udev:ro"
   ],
   "containerEnv": {
     "WEST_TOPDIR": "/workdir",
@@ -29,7 +33,13 @@
       "settings": {
         "cmake.scanForKitsOnOpen": true,
         "cmake.configureOnOpen": true,
-        "cmake.generator": "Ninja"
+        "cmake.generator": "Ninja",
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "terminal.integrated.profiles.linux": {
+          "zsh": {
+            "path": "/usr/bin/zsh"
+          }
+        }
       },
       "extensions": [
         "openai.chatgpt",
