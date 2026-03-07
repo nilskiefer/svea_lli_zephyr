@@ -12,7 +12,7 @@
 #include "host_command_dispatch.h"
 #include "uart_shared.h"
 
-LOG_MODULE_REGISTER(uart_subscriber, LOG_LEVEL_INF);
+LOG_MODULE_REGISTER(uart_subscriber, LOG_LEVEL_ERR);
 
 #define UART_SUB_STACK_SIZE 1536
 #define UART_SUB_THREAD_PRIO 3
@@ -72,8 +72,6 @@ static void uart_rx_start(void) {
     ret = uart_rx_enable(telemetry_uart, uart_dma_buf_a, sizeof(uart_dma_buf_a), 50);
     if (ret != 0) {
         LOG_ERR("uart_rx_enable failed: %d", ret);
-    } else {
-        LOG_INF("UART subscriber async RX enabled");
     }
 }
 
@@ -102,9 +100,7 @@ static void uart_sub_thread_fn(void *a, void *b, void *c) {
                 if (ch == '\n') {
                     line[line_len] = '\0';
                     if (line_len > 0U) {
-                        if (!host_command_dispatch_line(line)) {
-                            LOG_DBG("Unknown host command: %s", line);
-                        }
+                        (void)host_command_dispatch_line(line);
                     }
                     line_len = 0;
                     continue;
@@ -123,7 +119,7 @@ static void uart_sub_thread_fn(void *a, void *b, void *c) {
             if (uart_rx_drop_count != last_drop_reported) {
                 uint32_t dropped = uart_rx_drop_count - last_drop_reported;
                 last_drop_reported = uart_rx_drop_count;
-                LOG_WRN("UART subscriber dropped %u RX bytes (ring full)", dropped);
+                LOG_ERR("UART subscriber dropped %u RX bytes (ring full)", dropped);
             }
         }
     }
@@ -162,7 +158,6 @@ int uart_subscriber_start(void) {
     uart_subscriber_started = true;
     uart_rx_start();
 
-    LOG_INF("UART subscriber started on %s", telemetry_uart->name);
     return 0;
 }
 

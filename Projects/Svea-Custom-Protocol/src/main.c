@@ -3,12 +3,10 @@
 
 #include "app_threads.h"
 
-LOG_MODULE_REGISTER(app_main, LOG_LEVEL_INF);
+LOG_MODULE_REGISTER(app_main, LOG_LEVEL_ERR);
 
 int main(void)
 {
-    LOG_INF("zbus telemetry app starting");
-
     int ret = uart_shared_start();
     if (ret != 0) {
         LOG_ERR("UART shared transport failed to start (%d); stubs not started", ret);

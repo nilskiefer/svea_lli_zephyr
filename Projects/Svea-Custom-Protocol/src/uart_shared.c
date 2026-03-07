@@ -7,7 +7,7 @@
 
 #include "uart_shared.h"
 
-LOG_MODULE_REGISTER(uart_shared, LOG_LEVEL_INF);
+LOG_MODULE_REGISTER(uart_shared, LOG_LEVEL_ERR);
 
 #if !DT_NODE_HAS_STATUS(DT_ALIAS(telemetry_uart), okay)
 #error "telemetry-uart alias is missing or disabled"
@@ -50,7 +50,6 @@ int uart_shared_start(void) {
     }
 
     uart_shared_started = true;
-    LOG_INF("UART shared transport started on %s", telemetry_uart->name);
     return 0;
 }
 

@@ -277,7 +277,6 @@ void lsm6dsox_stub_start(void) {
                     0,
                     K_NO_WAIT);
     k_thread_name_set(&lsm6dsox_thread, "lsm6dsox_stub");
-    LOG_INF("LSM6DSOX stub started (%d Hz)", 1000 / LSM6DSOX_PERIOD_MS);
 }
 
 void ads1115_stub_start(void) {
@@ -292,7 +291,6 @@ void ads1115_stub_start(void) {
                     0,
                     K_NO_WAIT);
     k_thread_name_set(&ads1115_thread, "ads1115_stub");
-    LOG_INF("ADS1115 stub started (%d Hz)", 1000 / ADS1115_PERIOD_MS);
 }
 
 void ina3221_stub_start(void) {
@@ -307,7 +305,6 @@ void ina3221_stub_start(void) {
                     0,
                     K_NO_WAIT);
     k_thread_name_set(&ina3221_thread, "ina3221_stub");
-    LOG_INF("INA3221 stubs started (%d Hz each)", 1000 / INA3221_PERIOD_MS);
 }
 
 void bq76942_stub_start(void) {
@@ -322,7 +319,6 @@ void bq76942_stub_start(void) {
                     0,
                     K_NO_WAIT);
     k_thread_name_set(&bq76942_thread, "bq76942_stub");
-    LOG_INF("BQ76942 stub started (%d Hz)", 1000 / BQ76942_PERIOD_MS);
 }
 
 void ina226_stub_start(void) {
@@ -337,7 +333,6 @@ void ina226_stub_start(void) {
                     0,
                     K_NO_WAIT);
     k_thread_name_set(&ina226_thread, "ina226_stub");
-    LOG_INF("INA226 stubs started (%d Hz each)", 1000 / INA226_PERIOD_MS);
 }
 
 void heartbeat_stub_start(void) {
@@ -352,7 +347,6 @@ void heartbeat_stub_start(void) {
                     0,
                     K_NO_WAIT);
     k_thread_name_set(&heartbeat_thread, "heartbeat_stub");
-    LOG_INF("Heartbeat stub started (%d Hz)", 1000 / HEARTBEAT_PERIOD_MS);
 }
 
 void rc_command_stub_start(void) {
@@ -367,7 +361,6 @@ void rc_command_stub_start(void) {
                     0,
                     K_NO_WAIT);
     k_thread_name_set(&rc_command_thread, "rc_command_stub");
-    LOG_INF("RC command stub started (%d Hz)", 1000 / RC_COMMAND_PERIOD_MS);
 }
 
 static void host_command_thread_fn(void *a, void *b, void *c) {
@@ -405,31 +398,20 @@ static void host_command_thread_fn(void *a, void *b, void *c) {
             int64_t elapsed_ms = now_ms - start_ms;
             uint32_t total_count = servo_count + hb_count;
             uint32_t prev_total_count = prev_servo_count + prev_hb_count;
+            uint32_t servo_delta = servo_count - prev_servo_count;
+            uint32_t hb_delta = hb_count - prev_hb_count;
+            uint32_t total_delta = total_count - prev_total_count;
 
-            uint32_t servo_hz1_x10 = hz_x10(servo_count - prev_servo_count, dt_ms);
-            uint32_t hb_hz1_x10 = hz_x10(hb_count - prev_hb_count, dt_ms);
-            uint32_t total_hz1_x10 = hz_x10(total_count - prev_total_count, dt_ms);
+            uint32_t servo_hz1_x10 = hz_x10(servo_delta, dt_ms);
+            uint32_t hb_hz1_x10 = hz_x10(hb_delta, dt_ms);
+            uint32_t total_hz1_x10 = hz_x10(total_delta, dt_ms);
 
-            uint32_t servo_hz_avg_x10 = hz_x10(servo_count, elapsed_ms);
-            uint32_t hb_hz_avg_x10 = hz_x10(hb_count, elapsed_ms);
-            uint32_t total_hz_avg_x10 = hz_x10(total_count, elapsed_ms);
-
-            LOG_INF("Host RX Stats (%lld.%01llds)",
+            LOG_INF("host_rx_hz t=%lld.%01lld servo=%u.%01u hb=%u.%01u total=%u.%01u",
                     elapsed_ms / 1000,
-                    (elapsed_ms % 1000) / 100);
-            LOG_INF("topic             count  hz(1s)  hz(avg)");
-            LOG_INF("servo_control %8u  %3u.%01u    %3u.%01u",
-                    servo_count,
+                    (elapsed_ms % 1000) / 100,
                     servo_hz1_x10 / 10, servo_hz1_x10 % 10,
-                    servo_hz_avg_x10 / 10, servo_hz_avg_x10 % 10);
-            LOG_INF("host_heartbeat %8u  %3u.%01u    %3u.%01u",
-                    hb_count,
                     hb_hz1_x10 / 10, hb_hz1_x10 % 10,
-                    hb_hz_avg_x10 / 10, hb_hz_avg_x10 % 10);
-            LOG_INF("TOTAL          %8u  %3u.%01u    %3u.%01u",
-                    total_count,
-                    total_hz1_x10 / 10, total_hz1_x10 % 10,
-                    total_hz_avg_x10 / 10, total_hz_avg_x10 % 10);
+                    total_hz1_x10 / 10, total_hz1_x10 % 10);
 
             prev_servo_count = servo_count;
             prev_hb_count = hb_count;
@@ -452,5 +434,4 @@ void host_command_stub_start(void) {
                     0,
                     K_NO_WAIT);
     k_thread_name_set(&host_command_thread, "host_cmd_stub");
-    LOG_INF("Host command rate stub started (%d ms stats)", HOST_CMD_STATS_PERIOD_MS);
 }

@@ -13,7 +13,7 @@
 #include "topic_registry.h"
 #include "uart_shared.h"
 
-LOG_MODULE_REGISTER(uart_publisher, LOG_LEVEL_INF);
+LOG_MODULE_REGISTER(uart_publisher, LOG_LEVEL_ERR);
 
 #define UART_PUB_STACK_SIZE 1536
 #define UART_PUB_THREAD_PRIO 3
@@ -38,23 +38,18 @@ static void telemetry_wait_for_host(void) {
     while (attempts-- > 0) {
         ret = uart_line_ctrl_get(telemetry_uart, UART_LINE_CTRL_DTR, &dtr);
         if (ret != 0) {
-            LOG_INF("No modem-control support on %s (ret=%d), continuing",
-                    telemetry_uart->name, ret);
             return;
         }
 
         if (dtr != 0U) {
             (void)uart_line_ctrl_set(telemetry_uart, UART_LINE_CTRL_DCD, 1);
             (void)uart_line_ctrl_set(telemetry_uart, UART_LINE_CTRL_DSR, 1);
-            LOG_INF("Host connected to telemetry serial");
             return;
         }
 
         k_sleep(K_MSEC(100));
     }
 
-    LOG_INF("No DTR detected on %s, continuing without host handshake",
-            telemetry_uart->name);
 }
 
 static void uart_event_cb(const struct device *dev, struct uart_event *evt, void *user_data) {
@@ -244,7 +239,6 @@ int uart_publisher_start(void) {
         return cb_ret;
     }
     uart_async_ready = true;
-    LOG_INF("Telemetry UART async TX enabled");
 
     telemetry_wait_for_host();
 
@@ -260,7 +254,5 @@ int uart_publisher_start(void) {
                     K_NO_WAIT);
 
     k_thread_name_set(&uart_pub_thread, "uart_publisher");
-
-    LOG_INF("UART publisher started on %s", telemetry_uart->name);
     return 0;
 }
