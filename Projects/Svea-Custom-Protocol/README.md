@@ -80,15 +80,15 @@ Dense 3-rail payload, directly mirroring old INA3221 layout (`ESC`, `12V`, `5V`)
 | `topic` | string | - | `"ina3221_a"` or `"ina3221_b"` |
 | `t_ms` | u32 | ms | Uptime timestamp |
 | `seq` | u32 | - | Per-topic sequence |
-| `esc_bus_mv` | i32 | mV | ESC rail voltage |
-| `esc_current_ma` | i32 | mA | ESC rail current |
-| `esc_power_mw` | i32 | mW | ESC rail power |
-| `v12_bus_mv` | i32 | mV | 12V rail voltage |
-| `v12_current_ma` | i32 | mA | 12V rail current |
-| `v12_power_mw` | i32 | mW | 12V rail power |
-| `v5_bus_mv` | i32 | mV | 5V rail voltage |
-| `v5_current_ma` | i32 | mA | 5V rail current |
-| `v5_power_mw` | i32 | mW | 5V rail power |
+| `ch1_bus_mv` | i32 | mV | INA3221 channel 1 bus voltage |
+| `ch1_current_ma` | i32 | mA | INA3221 channel 1 current |
+| `ch1_power_mw` | i32 | mW | INA3221 channel 1 power |
+| `ch2_bus_mv` | i32 | mV | INA3221 channel 2 bus voltage |
+| `ch2_current_ma` | i32 | mA | INA3221 channel 2 current |
+| `ch2_power_mw` | i32 | mW | INA3221 channel 2 power |
+| `ch3_bus_mv` | i32 | mV | INA3221 channel 3 bus voltage |
+| `ch3_current_ma` | i32 | mA | INA3221 channel 3 current |
+| `ch3_power_mw` | i32 | mW | INA3221 channel 3 power |
 
 ### `bq76942`
 

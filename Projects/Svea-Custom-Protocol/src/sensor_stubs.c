@@ -94,27 +94,27 @@ static void ina3221_thread_fn(void *a, void *b, void *c) {
 
         a_msg.t_ms = (uint32_t)k_uptime_get();
         a_msg.seq = seq;
-        a_msg.esc_bus_mv = 24000 + ripple * 4;
-        a_msg.esc_current_ma = 1400 + ripple * 6;
-        a_msg.esc_power_mw = (a_msg.esc_bus_mv * a_msg.esc_current_ma) / 1000;
-        a_msg.v12_bus_mv = 12000 + ripple * 3;
-        a_msg.v12_current_ma = 700 + ripple * 4;
-        a_msg.v12_power_mw = (a_msg.v12_bus_mv * a_msg.v12_current_ma) / 1000;
-        a_msg.v5_bus_mv = 5000 + ripple * 2;
-        a_msg.v5_current_ma = 380 + ripple * 2;
-        a_msg.v5_power_mw = (a_msg.v5_bus_mv * a_msg.v5_current_ma) / 1000;
+        a_msg.ch1_bus_mv = 24000 + ripple * 4;
+        a_msg.ch1_current_ma = 1400 + ripple * 6;
+        a_msg.ch1_power_mw = (a_msg.ch1_bus_mv * a_msg.ch1_current_ma) / 1000;
+        a_msg.ch2_bus_mv = 12000 + ripple * 3;
+        a_msg.ch2_current_ma = 700 + ripple * 4;
+        a_msg.ch2_power_mw = (a_msg.ch2_bus_mv * a_msg.ch2_current_ma) / 1000;
+        a_msg.ch3_bus_mv = 5000 + ripple * 2;
+        a_msg.ch3_current_ma = 380 + ripple * 2;
+        a_msg.ch3_power_mw = (a_msg.ch3_bus_mv * a_msg.ch3_current_ma) / 1000;
 
         b_msg.t_ms = a_msg.t_ms;
         b_msg.seq = seq;
-        b_msg.esc_bus_mv = 24000 + ripple * 5;
-        b_msg.esc_current_ma = 900 + ripple * 3;
-        b_msg.esc_power_mw = (b_msg.esc_bus_mv * b_msg.esc_current_ma) / 1000;
-        b_msg.v12_bus_mv = 12000 + ripple * 2;
-        b_msg.v12_current_ma = 620 + ripple * 3;
-        b_msg.v12_power_mw = (b_msg.v12_bus_mv * b_msg.v12_current_ma) / 1000;
-        b_msg.v5_bus_mv = 5000 + ripple;
-        b_msg.v5_current_ma = 310 + ripple * 2;
-        b_msg.v5_power_mw = (b_msg.v5_bus_mv * b_msg.v5_current_ma) / 1000;
+        b_msg.ch1_bus_mv = 24000 + ripple * 5;
+        b_msg.ch1_current_ma = 900 + ripple * 3;
+        b_msg.ch1_power_mw = (b_msg.ch1_bus_mv * b_msg.ch1_current_ma) / 1000;
+        b_msg.ch2_bus_mv = 12000 + ripple * 2;
+        b_msg.ch2_current_ma = 620 + ripple * 3;
+        b_msg.ch2_power_mw = (b_msg.ch2_bus_mv * b_msg.ch2_current_ma) / 1000;
+        b_msg.ch3_bus_mv = 5000 + ripple;
+        b_msg.ch3_current_ma = 310 + ripple * 2;
+        b_msg.ch3_power_mw = (b_msg.ch3_bus_mv * b_msg.ch3_current_ma) / 1000;
 
         (void)zbus_chan_pub(&ina3221_a_chan, &a_msg, K_MSEC(5));
         (void)zbus_chan_pub(&ina3221_b_chan, &b_msg, K_MSEC(5));

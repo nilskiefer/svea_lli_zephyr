@@ -111,9 +111,9 @@ def format_msg(msg: dict[str, Any]) -> str:
     if topic.startswith("ina3221"):
         return (
             f"{topic:8} t={t_ms:>8} seq={seq:>6} "
-            f"ESC=({msg.get('esc_bus_mv', '-'):>5}mV,{msg.get('esc_current_ma', '-'):>5}mA,{msg.get('esc_power_mw', '-'):>6}mW) "
-            f"12V=({msg.get('v12_bus_mv', '-'):>5}mV,{msg.get('v12_current_ma', '-'):>5}mA,{msg.get('v12_power_mw', '-'):>6}mW) "
-            f"5V=({msg.get('v5_bus_mv', '-'):>5}mV,{msg.get('v5_current_ma', '-'):>5}mA,{msg.get('v5_power_mw', '-'):>6}mW)"
+            f"CH1=({msg.get('ch1_bus_mv', '-'):>5}mV,{msg.get('ch1_current_ma', '-'):>5}mA,{msg.get('ch1_power_mw', '-'):>6}mW) "
+            f"CH2=({msg.get('ch2_bus_mv', '-'):>5}mV,{msg.get('ch2_current_ma', '-'):>5}mA,{msg.get('ch2_power_mw', '-'):>6}mW) "
+            f"CH3=({msg.get('ch3_bus_mv', '-'):>5}mV,{msg.get('ch3_current_ma', '-'):>5}mA,{msg.get('ch3_power_mw', '-'):>6}mW)"
         )
     if topic.startswith("ina226"):
         return (
