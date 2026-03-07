@@ -9,9 +9,25 @@ int main(void)
 {
     LOG_INF("zbus telemetry app starting");
 
-    int ret = uart_publisher_start();
+    int ret = uart_shared_start();
+    if (ret != 0) {
+        LOG_ERR("UART shared transport failed to start (%d); stubs not started", ret);
+        while (1) {
+            k_sleep(K_SECONDS(1));
+        }
+    }
+
+    ret = uart_publisher_start();
     if (ret != 0) {
         LOG_ERR("UART publisher failed to start (%d); stubs not started", ret);
+        while (1) {
+            k_sleep(K_SECONDS(1));
+        }
+    }
+
+    ret = uart_subscriber_start();
+    if (ret != 0) {
+        LOG_ERR("UART subscriber failed to start (%d); stubs not started", ret);
         while (1) {
             k_sleep(K_SECONDS(1));
         }
@@ -24,6 +40,7 @@ int main(void)
     ina226_stub_start();
     heartbeat_stub_start();
     rc_command_stub_start();
+    host_command_stub_start();
 
     while (1) {
         k_sleep(K_SECONDS(1));

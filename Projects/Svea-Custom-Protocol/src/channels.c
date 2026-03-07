@@ -1,8 +1,33 @@
 #include <zephyr/zbus/zbus.h>
 
-#include "channels.h"
+#include "host_channels.h"
+#include "telemetry_channels.h"
 
+/* RX command channels are independent from outbound telemetry channels. */
 ZBUS_SUBSCRIBER_DEFINE(uart_pub_sub, 256);
+
+ZBUS_CHAN_DEFINE(servo_control_chan,
+                 struct servo_control_msg,
+                 NULL,
+                 NULL,
+                 ZBUS_OBSERVERS_EMPTY,
+                 ZBUS_MSG_INIT(.t_ms = 0,
+                               .seq = 0,
+                               .steering = 0,
+                               .throttle = 0,
+                               .high_gear = false,
+                               .front_diff = false,
+                               .rear_diff = false,
+                               .extra1 = 0,
+                               .extra2 = 0));
+
+ZBUS_CHAN_DEFINE(host_heartbeat_chan,
+                 struct host_heartbeat_msg,
+                 NULL,
+                 NULL,
+                 ZBUS_OBSERVERS_EMPTY,
+                 ZBUS_MSG_INIT(.t_ms = 0,
+                               .seq = 0));
 
 ZBUS_CHAN_DEFINE(heartbeat_chan,
                  struct heartbeat_msg,

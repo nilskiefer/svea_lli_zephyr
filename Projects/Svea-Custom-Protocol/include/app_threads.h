@@ -8,6 +8,9 @@ void bq76942_stub_start(void);
 void ina226_stub_start(void);
 void heartbeat_stub_start(void);
 void rc_command_stub_start(void);
+void host_command_stub_start(void);
+int uart_shared_start(void);
 int uart_publisher_start(void);
+int uart_subscriber_start(void);
 
 #endif

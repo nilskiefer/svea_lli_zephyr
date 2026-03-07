@@ -10,8 +10,12 @@ target_include_directories(app PRIVATE include)
 target_sources(app PRIVATE
   src/main.c
   src/channels.c
+  src/host_command_dispatch.c
   src/sensor_stubs.c
+  src/telemetry_encode.c
+  src/uart_shared.c
   src/uart_publisher.c
+  src/uart_subscriber.c
 )
 
 # Export HEX to a stable project-local path for external flash tools (e.g. CodeGrip).

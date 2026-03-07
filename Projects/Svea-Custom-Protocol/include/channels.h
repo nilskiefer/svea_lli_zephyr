@@ -1,16 +1,12 @@
 #ifndef PROJECT_CHANNELS_H_
 #define PROJECT_CHANNELS_H_
 
-#include <zephyr/zbus/zbus.h>
+/*
+ * Compatibility umbrella header.
+ * Prefer including telemetry_channels.h or host_channels.h directly.
+ */
 
-#include "messages.h"
-#include "topic_registry.h"
-
-ZBUS_OBS_DECLARE(uart_pub_sub);
-
-#define CHANNEL_DECLARE_ENTRY(id, topic_name, chan_name, type_name, priority) \
-    ZBUS_CHAN_DECLARE(chan_name);
-TELEMETRY_TOPIC_LIST(CHANNEL_DECLARE_ENTRY)
-#undef CHANNEL_DECLARE_ENTRY
+#include "host_channels.h"
+#include "telemetry_channels.h"
 
 #endif
