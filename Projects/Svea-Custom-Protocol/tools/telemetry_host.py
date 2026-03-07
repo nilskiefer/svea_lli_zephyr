@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Host-side reader for Svea Custom Protocol USB CDC telemetry.
+Host-side reader for Svea telemetry stream.
 
-Reads newline-delimited JSON messages and prints a concise live view.
+Supports framed CBOR (default) and newline-delimited JSON.
 """
 
 from __future__ import annotations
@@ -28,6 +28,14 @@ except ModuleNotFoundError:
     print("Install with: python3 -m pip install pyserial")
     sys.exit(1)
 
+try:
+    import cbor2
+except ModuleNotFoundError:
+    cbor2 = None
+
+CBOR_MAGIC = 0xA5
+MAX_FRAME = 2048
+
 
 def list_candidate_ports() -> list[Any]:
     ports = []
@@ -51,7 +59,6 @@ def auto_detect_port() -> str | None:
     if len(candidates) > 1:
         return None
 
-    # Prefer explicit Espressif/JTAG CDC style ports if available.
     for p in candidates:
         text = f"{p.device} {getattr(p, 'description', '')} {getattr(p, 'manufacturer', '')}".lower()
         if "espressif" in text or "jtag" in text:
@@ -79,7 +86,6 @@ def open_serial(port: str, baud: int, timeout: float) -> serial.Serial:
     except serial.SerialException as exc:
         raise SystemExit(f"Failed to open {port}: {exc}") from exc
 
-    # Assert DTR so firmware starts streaming.
     ser.dtr = True
     return ser
 
@@ -159,16 +165,22 @@ def print_stats_table(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Read Svea USB CDC telemetry")
-    parser.add_argument("--port", help="Serial port (example: /dev/ttyACM0 or COM5)")
-    parser.add_argument("--baud", type=int, default=115200, help="Baud rate (default: 115200)")
-    parser.add_argument("--raw", action="store_true", help="Print raw JSON lines")
+    parser = argparse.ArgumentParser(description="Read Svea telemetry")
+    parser.add_argument("--port", help="Serial port (example: /dev/ttyUSB0 or COM5)")
+    parser.add_argument("--baud", type=int, default=1000000, help="Baud rate (default: 1000000)")
+    parser.add_argument("--encoding", choices=["cbor", "json"], default="cbor", help="Wire encoding")
+    parser.add_argument("--raw", action="store_true", help="Print raw frames/lines")
     parser.add_argument("--timeout", type=float, default=0.2, help="Read timeout in seconds")
     parser.add_argument("--stats-interval", type=float, default=1.0, help="Stats print interval in seconds")
     parser.add_argument("--summary-only", action="store_true", help="Only print periodic frequency table")
     parser.add_argument("--pretty", action="store_true", help="Use rich table output if rich is installed")
     parser.add_argument("--list-ports", action="store_true", help="List likely serial ports and exit")
     args = parser.parse_args()
+
+    if args.encoding == "cbor" and cbor2 is None:
+        print("Missing dependency: cbor2")
+        print("Install with: python3 -m pip install cbor2")
+        return 2
 
     if args.list_ports:
         print_ports()
@@ -186,7 +198,7 @@ def main() -> int:
         print("No serial port auto-detected. Pass --port explicitly.")
         return 2
 
-    print(f"Opening {port} at {args.baud} baud...")
+    print(f"Opening {port} at {args.baud} baud ({args.encoding})...")
     ser = open_serial(port, args.baud, args.timeout)
     print("Connected. Press Ctrl+C to stop.")
     if args.pretty and Console is None:
@@ -199,52 +211,108 @@ def main() -> int:
     start_ts = time.monotonic()
     last_stat = start_ts
 
+    def maybe_print_stats(now: float) -> None:
+        nonlocal prev_total, prev_per_topic, last_stat
+        if now - last_stat >= args.stats_interval:
+            print_stats_table(
+                total=total,
+                elapsed_s=now - start_ts,
+                per_topic=per_topic,
+                prev_total=prev_total,
+                prev_per_topic=prev_per_topic,
+                dt=now - last_stat,
+                pretty=args.pretty,
+            )
+            prev_total = total
+            prev_per_topic = per_topic.copy()
+            last_stat = now
+
+    def handle_msg(msg: dict[str, Any]) -> None:
+        nonlocal total
+        topic = str(msg.get("topic", "unknown"))
+        total += 1
+        per_topic[topic] = per_topic.get(topic, 0) + 1
+        if args.summary_only:
+            return
+        if args.raw:
+            print(msg)
+        else:
+            print(format_msg(msg))
+
     try:
+        if args.encoding == "json":
+            while True:
+                line = ser.readline()
+                now = time.monotonic()
+                maybe_print_stats(now)
+
+                if not line:
+                    continue
+
+                text = line.decode("utf-8", errors="replace").strip()
+                if not text:
+                    continue
+
+                try:
+                    msg = json.loads(text)
+                except json.JSONDecodeError:
+                    if args.raw and not args.summary_only:
+                        print(f"[raw] {text}")
+                    continue
+
+                if isinstance(msg, dict):
+                    handle_msg(msg)
+            
+        rx_buf = bytearray()
         while True:
-            line = ser.readline()
+            chunk = ser.read(256)
             now = time.monotonic()
-            if now - last_stat >= args.stats_interval:
-                print_stats_table(
-                    total=total,
-                    elapsed_s=now - start_ts,
-                    per_topic=per_topic,
-                    prev_total=prev_total,
-                    prev_per_topic=prev_per_topic,
-                    dt=now - last_stat,
-                    pretty=args.pretty,
-                )
-                prev_total = total
-                prev_per_topic = per_topic.copy()
-                last_stat = now
+            maybe_print_stats(now)
 
-            if not line:
+            if not chunk:
                 continue
 
-            text = line.decode("utf-8", errors="replace").strip()
-            if not text:
-                continue
+            rx_buf.extend(chunk)
 
-            try:
-                msg = json.loads(text)
-            except json.JSONDecodeError:
-                if args.raw and not args.summary_only:
-                    print(f"[raw] {text}")
-                continue
+            while True:
+                if len(rx_buf) < 3:
+                    break
 
-            total += 1
-            topic = str(msg.get("topic", "unknown"))
-            per_topic[topic] = per_topic.get(topic, 0) + 1
+                sync_idx = rx_buf.find(bytes([CBOR_MAGIC]))
+                if sync_idx < 0:
+                    rx_buf.clear()
+                    break
 
-            if args.summary_only:
-                continue
-            if args.raw:
-                print(text)
-            else:
-                print(format_msg(msg))
+                if sync_idx > 0:
+                    del rx_buf[:sync_idx]
+
+                if len(rx_buf) < 3:
+                    break
+
+                frame_len = (rx_buf[1] << 8) | rx_buf[2]
+                if frame_len == 0 or frame_len > MAX_FRAME:
+                    del rx_buf[0]
+                    continue
+
+                if len(rx_buf) < 3 + frame_len:
+                    break
+
+                payload = bytes(rx_buf[3:3 + frame_len])
+                del rx_buf[:3 + frame_len]
+
+                try:
+                    msg = cbor2.loads(payload)
+                except Exception:
+                    if args.raw and not args.summary_only:
+                        print(f"[raw] invalid_cbor len={frame_len}")
+                    continue
+
+                if isinstance(msg, dict):
+                    handle_msg(msg)
 
     except KeyboardInterrupt:
         print("\nStopping.")
-        print(f"Final stats: total={total} per_topic={per_topic}")
+        print(f"Final stats: total={total} per_topic={dict(sorted(per_topic.items()))}")
         return 0
     finally:
         ser.close()

@@ -11,3 +11,4 @@ drivers/st_ism330dlc/ism330dlc.txt
 .tmp.driveupload/452977
 .vscode/mcp.json
 *.hex
+**/__pycache__/
