@@ -1,3 +1,5 @@
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -9,6 +11,7 @@
 #include <zephyr/logging/log.h>
 
 #include "channels.h"
+#include "topic_registry.h"
 
 LOG_MODULE_REGISTER(uart_publisher, LOG_LEVEL_INF);
 
@@ -30,52 +33,6 @@ static struct k_mutex uart_tx_lock;
 static struct k_sem uart_tx_done_sem;
 static bool uart_async_ready;
 static __nocache uint8_t uart_tx_frame[3 + TELEMETRY_MAX_CBOR_PAYLOAD];
-
-enum topic_slot {
-    TOPIC_SLOT_HEARTBEAT = 0,
-    TOPIC_SLOT_LSM6DSOX,
-    TOPIC_SLOT_ADS1115,
-    TOPIC_SLOT_INA3221_A,
-    TOPIC_SLOT_INA3221_B,
-    TOPIC_SLOT_BQ76942,
-    TOPIC_SLOT_INA226_A,
-    TOPIC_SLOT_INA226_B,
-    TOPIC_SLOT_COUNT
-};
-
-/*
- * Higher value = higher publish priority.
- * Tune these to change arbitration under load.
- */
-#define TOPIC_PRIO_BQ76942 100
-#define TOPIC_PRIO_INA226_A 70
-#define TOPIC_PRIO_INA226_B 70
-#define TOPIC_PRIO_INA3221_A 60
-#define TOPIC_PRIO_INA3221_B 60
-#define TOPIC_PRIO_ADS1115 50
-#define TOPIC_PRIO_LSM6DSOX 40
-#define TOPIC_PRIO_HEARTBEAT 10
-
-static uint8_t topic_priority[TOPIC_SLOT_COUNT] = {
-    [TOPIC_SLOT_HEARTBEAT] = TOPIC_PRIO_HEARTBEAT,
-    [TOPIC_SLOT_LSM6DSOX] = TOPIC_PRIO_LSM6DSOX,
-    [TOPIC_SLOT_ADS1115] = TOPIC_PRIO_ADS1115,
-    [TOPIC_SLOT_INA3221_A] = TOPIC_PRIO_INA3221_A,
-    [TOPIC_SLOT_INA3221_B] = TOPIC_PRIO_INA3221_B,
-    [TOPIC_SLOT_BQ76942] = TOPIC_PRIO_BQ76942,
-    [TOPIC_SLOT_INA226_A] = TOPIC_PRIO_INA226_A,
-    [TOPIC_SLOT_INA226_B] = TOPIC_PRIO_INA226_B,
-};
-
-static bool topic_pending[TOPIC_SLOT_COUNT];
-static struct heartbeat_msg heartbeat_latest;
-static struct lsm6dsox_msg lsm6dsox_latest;
-static struct ads1115_msg ads1115_latest;
-static struct ina3221_msg ina3221_a_latest;
-static struct ina3221_msg ina3221_b_latest;
-static struct bq76942_msg bq76942_latest;
-static struct ina226_msg ina226_a_latest;
-static struct ina226_msg ina226_b_latest;
 
 struct cbor_buf {
     uint8_t *buf;
@@ -120,12 +77,79 @@ static bool cbor_put_uint32(struct cbor_buf *b, uint32_t v) {
     return cbor_put_type_val(b, 0U, v);
 }
 
+static bool cbor_put_uint64(struct cbor_buf *b, uint64_t v) {
+    if (v <= UINT32_MAX) {
+        return cbor_put_type_val(b, 0U, (uint32_t)v);
+    }
+
+    return cbor_put_byte(b, (uint8_t)((0U << 5) | 27U)) &&
+           cbor_put_byte(b, (uint8_t)(v >> 56)) &&
+           cbor_put_byte(b, (uint8_t)(v >> 48)) &&
+           cbor_put_byte(b, (uint8_t)(v >> 40)) &&
+           cbor_put_byte(b, (uint8_t)(v >> 32)) &&
+           cbor_put_byte(b, (uint8_t)(v >> 24)) &&
+           cbor_put_byte(b, (uint8_t)(v >> 16)) &&
+           cbor_put_byte(b, (uint8_t)(v >> 8)) &&
+           cbor_put_byte(b, (uint8_t)v);
+}
+
 static bool cbor_put_int32(struct cbor_buf *b, int32_t v) {
     if (v >= 0) {
         return cbor_put_type_val(b, 0U, (uint32_t)v);
     }
 
     return cbor_put_type_val(b, 1U, (uint32_t)(-1 - v));
+}
+
+static __attribute__((unused)) bool cbor_put_int64(struct cbor_buf *b, int64_t v) {
+    if (v >= 0) {
+        return cbor_put_uint64(b, (uint64_t)v);
+    }
+
+    uint64_t n = (uint64_t)(-1 - v);
+    if (n <= UINT32_MAX) {
+        return cbor_put_type_val(b, 1U, (uint32_t)n);
+    }
+
+    return cbor_put_byte(b, (uint8_t)((1U << 5) | 27U)) &&
+           cbor_put_byte(b, (uint8_t)(n >> 56)) &&
+           cbor_put_byte(b, (uint8_t)(n >> 48)) &&
+           cbor_put_byte(b, (uint8_t)(n >> 40)) &&
+           cbor_put_byte(b, (uint8_t)(n >> 32)) &&
+           cbor_put_byte(b, (uint8_t)(n >> 24)) &&
+           cbor_put_byte(b, (uint8_t)(n >> 16)) &&
+           cbor_put_byte(b, (uint8_t)(n >> 8)) &&
+           cbor_put_byte(b, (uint8_t)n);
+}
+
+static __attribute__((unused)) bool cbor_put_bool(struct cbor_buf *b, bool v) {
+    return cbor_put_byte(b, (uint8_t)((7U << 5) | (v ? 21U : 20U)));
+}
+
+static __attribute__((unused)) bool cbor_put_float32(struct cbor_buf *b, float v) {
+    uint32_t bits;
+    memcpy(&bits, &v, sizeof(bits));
+
+    return cbor_put_byte(b, (uint8_t)((7U << 5) | 26U)) &&
+           cbor_put_byte(b, (uint8_t)(bits >> 24)) &&
+           cbor_put_byte(b, (uint8_t)(bits >> 16)) &&
+           cbor_put_byte(b, (uint8_t)(bits >> 8)) &&
+           cbor_put_byte(b, (uint8_t)bits);
+}
+
+static __attribute__((unused)) bool cbor_put_float64(struct cbor_buf *b, double v) {
+    uint64_t bits;
+    memcpy(&bits, &v, sizeof(bits));
+
+    return cbor_put_byte(b, (uint8_t)((7U << 5) | 27U)) &&
+           cbor_put_byte(b, (uint8_t)(bits >> 56)) &&
+           cbor_put_byte(b, (uint8_t)(bits >> 48)) &&
+           cbor_put_byte(b, (uint8_t)(bits >> 40)) &&
+           cbor_put_byte(b, (uint8_t)(bits >> 32)) &&
+           cbor_put_byte(b, (uint8_t)(bits >> 24)) &&
+           cbor_put_byte(b, (uint8_t)(bits >> 16)) &&
+           cbor_put_byte(b, (uint8_t)(bits >> 8)) &&
+           cbor_put_byte(b, (uint8_t)bits);
 }
 
 static bool cbor_put_tstr(struct cbor_buf *b, const char *s) {
@@ -228,79 +252,71 @@ static void cbor_send_status_online(void) {
     }
 }
 
+#define TOPIC_SLOT_ENTRY(id, topic_name, chan_name, type_name, priority) TOPIC_SLOT_##id,
+enum topic_slot {
+    TELEMETRY_TOPIC_LIST(TOPIC_SLOT_ENTRY)
+    TOPIC_SLOT_COUNT
+};
+#undef TOPIC_SLOT_ENTRY
+
+#define TOPIC_LATEST_ENTRY(id, topic_name, chan_name, type_name, priority) \
+    static struct type_name latest_##topic_name;
+TELEMETRY_TOPIC_LIST(TOPIC_LATEST_ENTRY)
+#undef TOPIC_LATEST_ENTRY
+
+#define TOPIC_PENDING_ENTRY(id, topic_name, chan_name, type_name, priority) false,
+static bool topic_pending[TOPIC_SLOT_COUNT] = {
+    TELEMETRY_TOPIC_LIST(TOPIC_PENDING_ENTRY)
+};
+#undef TOPIC_PENDING_ENTRY
+
+#define TOPIC_PRIORITY_ENTRY(id, topic_name, chan_name, type_name, priority) \
+    [TOPIC_SLOT_##id] = (priority),
+static uint8_t topic_priority[TOPIC_SLOT_COUNT] = {
+    TELEMETRY_TOPIC_LIST(TOPIC_PRIORITY_ENTRY)
+};
+#undef TOPIC_PRIORITY_ENTRY
+
+static bool encode_heartbeat_msg(struct cbor_buf *b, const char *topic, const void *msg);
+static bool encode_lsm6dsox_msg(struct cbor_buf *b, const char *topic, const void *msg);
+static bool encode_ads1115_msg(struct cbor_buf *b, const char *topic, const void *msg);
+static bool encode_ina3221_msg(struct cbor_buf *b, const char *topic, const void *msg);
+static bool encode_bq76942_msg(struct cbor_buf *b, const char *topic, const void *msg);
+static bool encode_ina226_msg(struct cbor_buf *b, const char *topic, const void *msg);
+
+struct topic_descriptor {
+    const struct zbus_channel *chan;
+    const char *topic_label;
+    void *latest;
+    bool (*encode)(struct cbor_buf *b, const char *topic, const void *msg);
+};
+
+#define TOPIC_DESC_ENTRY(id, topic_name, chan_name, type_name, priority)    \
+    [TOPIC_SLOT_##id] = {                                                    \
+        .chan = &chan_name,                                                  \
+        .topic_label = #topic_name,                                          \
+        .latest = &latest_##topic_name,                                      \
+        .encode = encode_##type_name,                                        \
+    },
+static const struct topic_descriptor topic_desc[TOPIC_SLOT_COUNT] = {
+    TELEMETRY_TOPIC_LIST(TOPIC_DESC_ENTRY)
+};
+#undef TOPIC_DESC_ENTRY
+
 static enum topic_slot channel_to_slot(const struct zbus_channel *chan) {
-    if (chan == &heartbeat_chan) {
-        return TOPIC_SLOT_HEARTBEAT;
-    }
-    if (chan == &lsm6dsox_chan) {
-        return TOPIC_SLOT_LSM6DSOX;
-    }
-    if (chan == &ads1115_chan) {
-        return TOPIC_SLOT_ADS1115;
-    }
-    if (chan == &ina3221_a_chan) {
-        return TOPIC_SLOT_INA3221_A;
-    }
-    if (chan == &ina3221_b_chan) {
-        return TOPIC_SLOT_INA3221_B;
-    }
-    if (chan == &bq76942_chan) {
-        return TOPIC_SLOT_BQ76942;
-    }
-    if (chan == &ina226_a_chan) {
-        return TOPIC_SLOT_INA226_A;
-    }
-    if (chan == &ina226_b_chan) {
-        return TOPIC_SLOT_INA226_B;
+    for (int i = 0; i < TOPIC_SLOT_COUNT; i++) {
+        if (topic_desc[i].chan == chan) {
+            return (enum topic_slot)i;
+        }
     }
     return TOPIC_SLOT_COUNT;
 }
 
 static void capture_topic_update(enum topic_slot slot) {
-    switch (slot) {
-    case TOPIC_SLOT_HEARTBEAT:
-        if (zbus_chan_read(&heartbeat_chan, &heartbeat_latest, K_MSEC(1)) == 0) {
-            topic_pending[slot] = true;
-        }
-        break;
-    case TOPIC_SLOT_LSM6DSOX:
-        if (zbus_chan_read(&lsm6dsox_chan, &lsm6dsox_latest, K_MSEC(1)) == 0) {
-            topic_pending[slot] = true;
-        }
-        break;
-    case TOPIC_SLOT_ADS1115:
-        if (zbus_chan_read(&ads1115_chan, &ads1115_latest, K_MSEC(1)) == 0) {
-            topic_pending[slot] = true;
-        }
-        break;
-    case TOPIC_SLOT_INA3221_A:
-        if (zbus_chan_read(&ina3221_a_chan, &ina3221_a_latest, K_MSEC(1)) == 0) {
-            topic_pending[slot] = true;
-        }
-        break;
-    case TOPIC_SLOT_INA3221_B:
-        if (zbus_chan_read(&ina3221_b_chan, &ina3221_b_latest, K_MSEC(1)) == 0) {
-            topic_pending[slot] = true;
-        }
-        break;
-    case TOPIC_SLOT_BQ76942:
-        if (zbus_chan_read(&bq76942_chan, &bq76942_latest, K_MSEC(1)) == 0) {
-            topic_pending[slot] = true;
-        }
-        break;
-    case TOPIC_SLOT_INA226_A:
-        if (zbus_chan_read(&ina226_a_chan, &ina226_a_latest, K_MSEC(1)) == 0) {
-            topic_pending[slot] = true;
-        }
-        break;
-    case TOPIC_SLOT_INA226_B:
-        if (zbus_chan_read(&ina226_b_chan, &ina226_b_latest, K_MSEC(1)) == 0) {
-            topic_pending[slot] = true;
-        }
-        break;
-    case TOPIC_SLOT_COUNT:
-    default:
-        break;
+    const struct topic_descriptor *desc = &topic_desc[slot];
+
+    if (zbus_chan_read(desc->chan, desc->latest, K_MSEC(1)) == 0) {
+        topic_pending[slot] = true;
     }
 }
 
@@ -324,110 +340,97 @@ static enum topic_slot pick_next_pending_slot(void) {
 static void send_pending_slot(enum topic_slot slot) {
     uint8_t payload[TELEMETRY_MAX_CBOR_PAYLOAD];
     struct cbor_buf b = {.buf = payload, .len = 0, .cap = sizeof(payload)};
-    bool ok = false;
+    const struct topic_descriptor *desc = &topic_desc[slot];
 
-    switch (slot) {
-    case TOPIC_SLOT_HEARTBEAT:
-        ok = cbor_put_map_start(&b, 3U) &&
-             cbor_put_tstr(&b, "topic") && cbor_put_tstr(&b, "heartbeat") &&
-             cbor_put_tstr(&b, "t_ms") && cbor_put_uint32(&b, heartbeat_latest.t_ms) &&
-             cbor_put_tstr(&b, "seq") && cbor_put_uint32(&b, heartbeat_latest.seq);
-        break;
-    case TOPIC_SLOT_LSM6DSOX:
-        ok = cbor_put_map_start(&b, 10U) &&
-             cbor_put_tstr(&b, "topic") && cbor_put_tstr(&b, "lsm6dsox") &&
-             cbor_put_tstr(&b, "t_ms") && cbor_put_uint32(&b, lsm6dsox_latest.t_ms) &&
-             cbor_put_tstr(&b, "seq") && cbor_put_uint32(&b, lsm6dsox_latest.seq) &&
-             cbor_put_tstr(&b, "ax_mg") && cbor_put_int32(&b, lsm6dsox_latest.ax_mg) &&
-             cbor_put_tstr(&b, "ay_mg") && cbor_put_int32(&b, lsm6dsox_latest.ay_mg) &&
-             cbor_put_tstr(&b, "az_mg") && cbor_put_int32(&b, lsm6dsox_latest.az_mg) &&
-             cbor_put_tstr(&b, "gx_mdps") && cbor_put_int32(&b, lsm6dsox_latest.gx_mdps) &&
-             cbor_put_tstr(&b, "gy_mdps") && cbor_put_int32(&b, lsm6dsox_latest.gy_mdps) &&
-             cbor_put_tstr(&b, "gz_mdps") && cbor_put_int32(&b, lsm6dsox_latest.gz_mdps) &&
-             cbor_put_tstr(&b, "temp_cdeg") && cbor_put_int32(&b, lsm6dsox_latest.temp_cdeg);
-        break;
-    case TOPIC_SLOT_ADS1115:
-        ok = cbor_put_map_start(&b, 7U) &&
-             cbor_put_tstr(&b, "topic") && cbor_put_tstr(&b, "ads1115") &&
-             cbor_put_tstr(&b, "t_ms") && cbor_put_uint32(&b, ads1115_latest.t_ms) &&
-             cbor_put_tstr(&b, "seq") && cbor_put_uint32(&b, ads1115_latest.seq) &&
-             cbor_put_tstr(&b, "ain0_mv") && cbor_put_int32(&b, ads1115_latest.ain0_mv) &&
-             cbor_put_tstr(&b, "ain1_mv") && cbor_put_int32(&b, ads1115_latest.ain1_mv) &&
-             cbor_put_tstr(&b, "ain2_mv") && cbor_put_int32(&b, ads1115_latest.ain2_mv) &&
-             cbor_put_tstr(&b, "ain3_mv") && cbor_put_int32(&b, ads1115_latest.ain3_mv);
-        break;
-    case TOPIC_SLOT_INA3221_A:
-        ok = cbor_put_map_start(&b, 12U) &&
-             cbor_put_tstr(&b, "topic") && cbor_put_tstr(&b, "ina3221_a") &&
-             cbor_put_tstr(&b, "t_ms") && cbor_put_uint32(&b, ina3221_a_latest.t_ms) &&
-             cbor_put_tstr(&b, "seq") && cbor_put_uint32(&b, ina3221_a_latest.seq) &&
-             cbor_put_tstr(&b, "esc_bus_mv") && cbor_put_int32(&b, ina3221_a_latest.esc_bus_mv) &&
-             cbor_put_tstr(&b, "esc_current_ma") && cbor_put_int32(&b, ina3221_a_latest.esc_current_ma) &&
-             cbor_put_tstr(&b, "esc_power_mw") && cbor_put_int32(&b, ina3221_a_latest.esc_power_mw) &&
-             cbor_put_tstr(&b, "v12_bus_mv") && cbor_put_int32(&b, ina3221_a_latest.v12_bus_mv) &&
-             cbor_put_tstr(&b, "v12_current_ma") && cbor_put_int32(&b, ina3221_a_latest.v12_current_ma) &&
-             cbor_put_tstr(&b, "v12_power_mw") && cbor_put_int32(&b, ina3221_a_latest.v12_power_mw) &&
-             cbor_put_tstr(&b, "v5_bus_mv") && cbor_put_int32(&b, ina3221_a_latest.v5_bus_mv) &&
-             cbor_put_tstr(&b, "v5_current_ma") && cbor_put_int32(&b, ina3221_a_latest.v5_current_ma) &&
-             cbor_put_tstr(&b, "v5_power_mw") && cbor_put_int32(&b, ina3221_a_latest.v5_power_mw);
-        break;
-    case TOPIC_SLOT_INA3221_B:
-        ok = cbor_put_map_start(&b, 12U) &&
-             cbor_put_tstr(&b, "topic") && cbor_put_tstr(&b, "ina3221_b") &&
-             cbor_put_tstr(&b, "t_ms") && cbor_put_uint32(&b, ina3221_b_latest.t_ms) &&
-             cbor_put_tstr(&b, "seq") && cbor_put_uint32(&b, ina3221_b_latest.seq) &&
-             cbor_put_tstr(&b, "esc_bus_mv") && cbor_put_int32(&b, ina3221_b_latest.esc_bus_mv) &&
-             cbor_put_tstr(&b, "esc_current_ma") && cbor_put_int32(&b, ina3221_b_latest.esc_current_ma) &&
-             cbor_put_tstr(&b, "esc_power_mw") && cbor_put_int32(&b, ina3221_b_latest.esc_power_mw) &&
-             cbor_put_tstr(&b, "v12_bus_mv") && cbor_put_int32(&b, ina3221_b_latest.v12_bus_mv) &&
-             cbor_put_tstr(&b, "v12_current_ma") && cbor_put_int32(&b, ina3221_b_latest.v12_current_ma) &&
-             cbor_put_tstr(&b, "v12_power_mw") && cbor_put_int32(&b, ina3221_b_latest.v12_power_mw) &&
-             cbor_put_tstr(&b, "v5_bus_mv") && cbor_put_int32(&b, ina3221_b_latest.v5_bus_mv) &&
-             cbor_put_tstr(&b, "v5_current_ma") && cbor_put_int32(&b, ina3221_b_latest.v5_current_ma) &&
-             cbor_put_tstr(&b, "v5_power_mw") && cbor_put_int32(&b, ina3221_b_latest.v5_power_mw);
-        break;
-    case TOPIC_SLOT_BQ76942:
-        ok = cbor_put_map_start(&b, 11U) &&
-             cbor_put_tstr(&b, "topic") && cbor_put_tstr(&b, "bq76942") &&
-             cbor_put_tstr(&b, "t_ms") && cbor_put_uint32(&b, bq76942_latest.t_ms) &&
-             cbor_put_tstr(&b, "seq") && cbor_put_uint32(&b, bq76942_latest.seq) &&
-             cbor_put_tstr(&b, "pack_mv") && cbor_put_int32(&b, bq76942_latest.pack_mv) &&
-             cbor_put_tstr(&b, "pack_ma") && cbor_put_int32(&b, bq76942_latest.pack_ma) &&
-             cbor_put_tstr(&b, "soc_deci_pct") && cbor_put_int32(&b, bq76942_latest.soc_deci_pct) &&
-             cbor_put_tstr(&b, "temp_cdeg") && cbor_put_int32(&b, bq76942_latest.temp_cdeg) &&
-             cbor_put_tstr(&b, "cell_min_mv") && cbor_put_int32(&b, bq76942_latest.cell_min_mv) &&
-             cbor_put_tstr(&b, "cell_avg_mv") && cbor_put_int32(&b, bq76942_latest.cell_avg_mv) &&
-             cbor_put_tstr(&b, "cell_max_mv") && cbor_put_int32(&b, bq76942_latest.cell_max_mv) &&
-             cbor_put_tstr(&b, "error_flags") && cbor_put_uint32(&b, (uint32_t)bq76942_latest.error_flags);
-        break;
-    case TOPIC_SLOT_INA226_A:
-        ok = cbor_put_map_start(&b, 7U) &&
-             cbor_put_tstr(&b, "topic") && cbor_put_tstr(&b, "ina226_a") &&
-             cbor_put_tstr(&b, "t_ms") && cbor_put_uint32(&b, ina226_a_latest.t_ms) &&
-             cbor_put_tstr(&b, "seq") && cbor_put_uint32(&b, ina226_a_latest.seq) &&
-             cbor_put_tstr(&b, "bus_mv") && cbor_put_int32(&b, ina226_a_latest.bus_mv) &&
-             cbor_put_tstr(&b, "shunt_uv") && cbor_put_int32(&b, ina226_a_latest.shunt_uv) &&
-             cbor_put_tstr(&b, "current_ma") && cbor_put_int32(&b, ina226_a_latest.current_ma) &&
-             cbor_put_tstr(&b, "power_mw") && cbor_put_int32(&b, ina226_a_latest.power_mw);
-        break;
-    case TOPIC_SLOT_INA226_B:
-        ok = cbor_put_map_start(&b, 7U) &&
-             cbor_put_tstr(&b, "topic") && cbor_put_tstr(&b, "ina226_b") &&
-             cbor_put_tstr(&b, "t_ms") && cbor_put_uint32(&b, ina226_b_latest.t_ms) &&
-             cbor_put_tstr(&b, "seq") && cbor_put_uint32(&b, ina226_b_latest.seq) &&
-             cbor_put_tstr(&b, "bus_mv") && cbor_put_int32(&b, ina226_b_latest.bus_mv) &&
-             cbor_put_tstr(&b, "shunt_uv") && cbor_put_int32(&b, ina226_b_latest.shunt_uv) &&
-             cbor_put_tstr(&b, "current_ma") && cbor_put_int32(&b, ina226_b_latest.current_ma) &&
-             cbor_put_tstr(&b, "power_mw") && cbor_put_int32(&b, ina226_b_latest.power_mw);
-        break;
-    case TOPIC_SLOT_COUNT:
-    default:
-        break;
-    }
-
-    if (ok) {
+    if (desc->encode(&b, desc->topic_label, desc->latest)) {
         uart_send_cbor_payload(payload, b.len);
     }
+}
+
+static bool encode_heartbeat_msg(struct cbor_buf *b, const char *topic, const void *msg) {
+    const struct heartbeat_msg *m = msg;
+
+    return cbor_put_map_start(b, 3U) &&
+           cbor_put_tstr(b, "topic") && cbor_put_tstr(b, topic) &&
+           cbor_put_tstr(b, "t_ms") && cbor_put_uint32(b, m->t_ms) &&
+           cbor_put_tstr(b, "seq") && cbor_put_uint32(b, m->seq);
+}
+
+static bool encode_lsm6dsox_msg(struct cbor_buf *b, const char *topic, const void *msg) {
+    const struct lsm6dsox_msg *m = msg;
+
+    return cbor_put_map_start(b, 10U) &&
+           cbor_put_tstr(b, "topic") && cbor_put_tstr(b, topic) &&
+           cbor_put_tstr(b, "t_ms") && cbor_put_uint32(b, m->t_ms) &&
+           cbor_put_tstr(b, "seq") && cbor_put_uint32(b, m->seq) &&
+           cbor_put_tstr(b, "ax_mg") && cbor_put_int32(b, m->ax_mg) &&
+           cbor_put_tstr(b, "ay_mg") && cbor_put_int32(b, m->ay_mg) &&
+           cbor_put_tstr(b, "az_mg") && cbor_put_int32(b, m->az_mg) &&
+           cbor_put_tstr(b, "gx_mdps") && cbor_put_int32(b, m->gx_mdps) &&
+           cbor_put_tstr(b, "gy_mdps") && cbor_put_int32(b, m->gy_mdps) &&
+           cbor_put_tstr(b, "gz_mdps") && cbor_put_int32(b, m->gz_mdps) &&
+           cbor_put_tstr(b, "temp_cdeg") && cbor_put_int32(b, m->temp_cdeg);
+}
+
+static bool encode_ads1115_msg(struct cbor_buf *b, const char *topic, const void *msg) {
+    const struct ads1115_msg *m = msg;
+
+    return cbor_put_map_start(b, 7U) &&
+           cbor_put_tstr(b, "topic") && cbor_put_tstr(b, topic) &&
+           cbor_put_tstr(b, "t_ms") && cbor_put_uint32(b, m->t_ms) &&
+           cbor_put_tstr(b, "seq") && cbor_put_uint32(b, m->seq) &&
+           cbor_put_tstr(b, "ain0_mv") && cbor_put_int32(b, m->ain0_mv) &&
+           cbor_put_tstr(b, "ain1_mv") && cbor_put_int32(b, m->ain1_mv) &&
+           cbor_put_tstr(b, "ain2_mv") && cbor_put_int32(b, m->ain2_mv) &&
+           cbor_put_tstr(b, "ain3_mv") && cbor_put_int32(b, m->ain3_mv);
+}
+
+static bool encode_ina3221_msg(struct cbor_buf *b, const char *topic, const void *msg) {
+    const struct ina3221_msg *m = msg;
+
+    return cbor_put_map_start(b, 12U) &&
+           cbor_put_tstr(b, "topic") && cbor_put_tstr(b, topic) &&
+           cbor_put_tstr(b, "t_ms") && cbor_put_uint32(b, m->t_ms) &&
+           cbor_put_tstr(b, "seq") && cbor_put_uint32(b, m->seq) &&
+           cbor_put_tstr(b, "ch1_bus_mv") && cbor_put_int32(b, m->ch1_bus_mv) &&
+           cbor_put_tstr(b, "ch1_current_ma") && cbor_put_int32(b, m->ch1_current_ma) &&
+           cbor_put_tstr(b, "ch1_power_mw") && cbor_put_int32(b, m->ch1_power_mw) &&
+           cbor_put_tstr(b, "ch2_bus_mv") && cbor_put_int32(b, m->ch2_bus_mv) &&
+           cbor_put_tstr(b, "ch2_current_ma") && cbor_put_int32(b, m->ch2_current_ma) &&
+           cbor_put_tstr(b, "ch2_power_mw") && cbor_put_int32(b, m->ch2_power_mw) &&
+           cbor_put_tstr(b, "ch3_bus_mv") && cbor_put_int32(b, m->ch3_bus_mv) &&
+           cbor_put_tstr(b, "ch3_current_ma") && cbor_put_int32(b, m->ch3_current_ma) &&
+           cbor_put_tstr(b, "ch3_power_mw") && cbor_put_int32(b, m->ch3_power_mw);
+}
+
+static bool encode_bq76942_msg(struct cbor_buf *b, const char *topic, const void *msg) {
+    const struct bq76942_msg *m = msg;
+
+    return cbor_put_map_start(b, 11U) &&
+           cbor_put_tstr(b, "topic") && cbor_put_tstr(b, topic) &&
+           cbor_put_tstr(b, "t_ms") && cbor_put_uint32(b, m->t_ms) &&
+           cbor_put_tstr(b, "seq") && cbor_put_uint32(b, m->seq) &&
+           cbor_put_tstr(b, "pack_mv") && cbor_put_int32(b, m->pack_mv) &&
+           cbor_put_tstr(b, "pack_ma") && cbor_put_int32(b, m->pack_ma) &&
+           cbor_put_tstr(b, "soc_deci_pct") && cbor_put_int32(b, m->soc_deci_pct) &&
+           cbor_put_tstr(b, "temp_cdeg") && cbor_put_int32(b, m->temp_cdeg) &&
+           cbor_put_tstr(b, "cell_min_mv") && cbor_put_int32(b, m->cell_min_mv) &&
+           cbor_put_tstr(b, "cell_avg_mv") && cbor_put_int32(b, m->cell_avg_mv) &&
+           cbor_put_tstr(b, "cell_max_mv") && cbor_put_int32(b, m->cell_max_mv) &&
+           cbor_put_tstr(b, "error_flags") && cbor_put_uint32(b, (uint32_t)m->error_flags);
+}
+
+static bool encode_ina226_msg(struct cbor_buf *b, const char *topic, const void *msg) {
+    const struct ina226_msg *m = msg;
+
+    return cbor_put_map_start(b, 7U) &&
+           cbor_put_tstr(b, "topic") && cbor_put_tstr(b, topic) &&
+           cbor_put_tstr(b, "t_ms") && cbor_put_uint32(b, m->t_ms) &&
+           cbor_put_tstr(b, "seq") && cbor_put_uint32(b, m->seq) &&
+           cbor_put_tstr(b, "bus_mv") && cbor_put_int32(b, m->bus_mv) &&
+           cbor_put_tstr(b, "shunt_uv") && cbor_put_int32(b, m->shunt_uv) &&
+           cbor_put_tstr(b, "current_ma") && cbor_put_int32(b, m->current_ma) &&
+           cbor_put_tstr(b, "power_mw") && cbor_put_int32(b, m->power_mw);
 }
 
 static void uart_pub_thread_fn(void *a, void *b, void *c) {

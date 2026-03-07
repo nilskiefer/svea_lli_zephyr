@@ -3,17 +3,6 @@
 
 #include <stdint.h>
 
-enum sensor_topic_id {
-    TOPIC_HEARTBEAT = 0,
-    TOPIC_LSM6DSOX = 1,
-    TOPIC_ADS1115 = 2,
-    TOPIC_INA3221_A = 3,
-    TOPIC_INA3221_B = 4,
-    TOPIC_BQ76942 = 5,
-    TOPIC_INA226_A = 6,
-    TOPIC_INA226_B = 7,
-};
-
 struct heartbeat_msg {
     uint32_t t_ms;
     uint32_t seq;
@@ -43,15 +32,15 @@ struct ads1115_msg {
 struct ina3221_msg {
     uint32_t t_ms;
     uint32_t seq;
-    int32_t esc_bus_mv;
-    int32_t esc_current_ma;
-    int32_t esc_power_mw;
-    int32_t v12_bus_mv;
-    int32_t v12_current_ma;
-    int32_t v12_power_mw;
-    int32_t v5_bus_mv;
-    int32_t v5_current_ma;
-    int32_t v5_power_mw;
+    int32_t ch1_bus_mv;
+    int32_t ch1_current_ma;
+    int32_t ch1_power_mw;
+    int32_t ch2_bus_mv;
+    int32_t ch2_current_ma;
+    int32_t ch2_power_mw;
+    int32_t ch3_bus_mv;
+    int32_t ch3_current_ma;
+    int32_t ch3_power_mw;
 };
 
 struct bq76942_msg {

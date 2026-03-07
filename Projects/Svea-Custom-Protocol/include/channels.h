@@ -4,16 +4,13 @@
 #include <zephyr/zbus/zbus.h>
 
 #include "messages.h"
+#include "topic_registry.h"
 
 ZBUS_OBS_DECLARE(uart_pub_sub);
 
-ZBUS_CHAN_DECLARE(heartbeat_chan);
-ZBUS_CHAN_DECLARE(lsm6dsox_chan);
-ZBUS_CHAN_DECLARE(ads1115_chan);
-ZBUS_CHAN_DECLARE(ina3221_a_chan);
-ZBUS_CHAN_DECLARE(ina3221_b_chan);
-ZBUS_CHAN_DECLARE(bq76942_chan);
-ZBUS_CHAN_DECLARE(ina226_a_chan);
-ZBUS_CHAN_DECLARE(ina226_b_chan);
+#define CHANNEL_DECLARE_ENTRY(id, topic_name, chan_name, type_name, priority) \
+    ZBUS_CHAN_DECLARE(chan_name);
+TELEMETRY_TOPIC_LIST(CHANNEL_DECLARE_ENTRY)
+#undef CHANNEL_DECLARE_ENTRY
 
 #endif
