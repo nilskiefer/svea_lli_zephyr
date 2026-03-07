@@ -2,7 +2,7 @@
 
 #include "channels.h"
 
-ZBUS_SUBSCRIBER_DEFINE(uart_pub_sub, 16);
+ZBUS_SUBSCRIBER_DEFINE(uart_pub_sub, 256);
 
 ZBUS_CHAN_DEFINE(lsm6dsox_chan,
                  struct lsm6dsox_msg,

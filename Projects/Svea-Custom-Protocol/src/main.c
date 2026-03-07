@@ -9,7 +9,14 @@ int main(void)
 {
     LOG_INF("zbus telemetry app starting");
 
-    uart_publisher_start();
+    int ret = uart_publisher_start();
+    if (ret != 0) {
+        LOG_ERR("UART publisher failed to start (%d); stubs not started", ret);
+        while (1) {
+            k_sleep(K_SECONDS(1));
+        }
+    }
+
     lsm6dsox_stub_start();
     ads1115_stub_start();
     ina3221_stub_start();
