@@ -12,6 +12,7 @@ LOG_MODULE_REGISTER(sensor_stubs, LOG_LEVEL_INF);
 #define INA226_PERIOD_MS 20
 #define HEARTBEAT_PERIOD_MS 100
 #define RC_COMMAND_PERIOD_MS 10
+#define HOST_CMD_STATS_PERIOD_MS 1000
 
 #define STUB_STACK_SIZE 1024
 #define STUB_THREAD_PRIO 4
@@ -23,6 +24,7 @@ static K_THREAD_STACK_DEFINE(bq76942_stack, STUB_STACK_SIZE);
 static K_THREAD_STACK_DEFINE(ina226_stack, STUB_STACK_SIZE);
 static K_THREAD_STACK_DEFINE(heartbeat_stack, STUB_STACK_SIZE);
 static K_THREAD_STACK_DEFINE(rc_command_stack, STUB_STACK_SIZE);
+static K_THREAD_STACK_DEFINE(host_command_stack, STUB_STACK_SIZE);
 
 static struct k_thread lsm6dsox_thread;
 static struct k_thread ads1115_thread;
@@ -31,6 +33,14 @@ static struct k_thread bq76942_thread;
 static struct k_thread ina226_thread;
 static struct k_thread heartbeat_thread;
 static struct k_thread rc_command_thread;
+static struct k_thread host_command_thread;
+
+static uint32_t hz_x10(uint32_t count_delta, int64_t dt_ms) {
+    if (dt_ms <= 0) {
+        return 0;
+    }
+    return (uint32_t)(((uint64_t)count_delta * 10000ULL) / (uint64_t)dt_ms);
+}
 
 /*
  * Periodic pacing with bounded catch-up:
@@ -358,4 +368,89 @@ void rc_command_stub_start(void) {
                     K_NO_WAIT);
     k_thread_name_set(&rc_command_thread, "rc_command_stub");
     LOG_INF("RC command stub started (%d Hz)", 1000 / RC_COMMAND_PERIOD_MS);
+}
+
+static void host_command_thread_fn(void *a, void *b, void *c) {
+    ARG_UNUSED(a);
+    ARG_UNUSED(b);
+    ARG_UNUSED(c);
+
+    struct servo_control_msg servo = {0};
+    struct host_heartbeat_msg hb = {0};
+    uint32_t last_servo_seq = UINT32_MAX;
+    uint32_t last_hb_seq = UINT32_MAX;
+    uint32_t servo_count = 0;
+    uint32_t hb_count = 0;
+    uint32_t prev_servo_count = 0;
+    uint32_t prev_hb_count = 0;
+    int64_t start_ms = k_uptime_get();
+    int64_t last_stats_ms = start_ms;
+
+    while (1) {
+        if (zbus_chan_read(&servo_control_chan, &servo, K_NO_WAIT) == 0 &&
+            servo.seq != last_servo_seq) {
+            last_servo_seq = servo.seq;
+            servo_count++;
+        }
+
+        if (zbus_chan_read(&host_heartbeat_chan, &hb, K_NO_WAIT) == 0 &&
+            hb.seq != last_hb_seq) {
+            last_hb_seq = hb.seq;
+            hb_count++;
+        }
+
+        int64_t now_ms = k_uptime_get();
+        int64_t dt_ms = now_ms - last_stats_ms;
+        if (dt_ms >= HOST_CMD_STATS_PERIOD_MS) {
+            int64_t elapsed_ms = now_ms - start_ms;
+            uint32_t total_count = servo_count + hb_count;
+            uint32_t prev_total_count = prev_servo_count + prev_hb_count;
+
+            uint32_t servo_hz1_x10 = hz_x10(servo_count - prev_servo_count, dt_ms);
+            uint32_t hb_hz1_x10 = hz_x10(hb_count - prev_hb_count, dt_ms);
+            uint32_t total_hz1_x10 = hz_x10(total_count - prev_total_count, dt_ms);
+
+            uint32_t servo_hz_avg_x10 = hz_x10(servo_count, elapsed_ms);
+            uint32_t hb_hz_avg_x10 = hz_x10(hb_count, elapsed_ms);
+            uint32_t total_hz_avg_x10 = hz_x10(total_count, elapsed_ms);
+
+            LOG_INF("Host RX Stats (%lld.%01llds)",
+                    elapsed_ms / 1000,
+                    (elapsed_ms % 1000) / 100);
+            LOG_INF("topic             count  hz(1s)  hz(avg)");
+            LOG_INF("servo_control %8u  %3u.%01u    %3u.%01u",
+                    servo_count,
+                    servo_hz1_x10 / 10, servo_hz1_x10 % 10,
+                    servo_hz_avg_x10 / 10, servo_hz_avg_x10 % 10);
+            LOG_INF("host_heartbeat %8u  %3u.%01u    %3u.%01u",
+                    hb_count,
+                    hb_hz1_x10 / 10, hb_hz1_x10 % 10,
+                    hb_hz_avg_x10 / 10, hb_hz_avg_x10 % 10);
+            LOG_INF("TOTAL          %8u  %3u.%01u    %3u.%01u",
+                    total_count,
+                    total_hz1_x10 / 10, total_hz1_x10 % 10,
+                    total_hz_avg_x10 / 10, total_hz_avg_x10 % 10);
+
+            prev_servo_count = servo_count;
+            prev_hb_count = hb_count;
+            last_stats_ms = now_ms;
+        }
+
+        k_sleep(K_MSEC(5));
+    }
+}
+
+void host_command_stub_start(void) {
+    k_thread_create(&host_command_thread,
+                    host_command_stack,
+                    K_THREAD_STACK_SIZEOF(host_command_stack),
+                    host_command_thread_fn,
+                    NULL,
+                    NULL,
+                    NULL,
+                    STUB_THREAD_PRIO,
+                    0,
+                    K_NO_WAIT);
+    k_thread_name_set(&host_command_thread, "host_cmd_stub");
+    LOG_INF("Host command rate stub started (%d ms stats)", HOST_CMD_STATS_PERIOD_MS);
 }

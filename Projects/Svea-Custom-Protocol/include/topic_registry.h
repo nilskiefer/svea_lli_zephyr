@@ -5,9 +5,11 @@
  * Central telemetry topic registry.
  * Add new entries here so channel declarations, topic enums, and publisher
  * routing stay aligned.
+ *
+ * Each entry is:
+ *   X(ID, topic_label, channel_symbol, message_type, priority)
+ * Priority rule: larger value wins when multiple topics are pending.
  */
-
-// always have heartbeat at lowest priority to make it obvious when publish frequency is too high for other stuff
 
 #define TELEMETRY_TOPIC_LIST(X)                                    \
     X(HEARTBEAT, heartbeat, heartbeat_chan, heartbeat_msg, 10)     \

@@ -4,6 +4,17 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+/*
+ * Message schema definitions (payload only).
+ *
+ * Extension flow:
+ * 1) Add/modify a struct here (keep `t_ms` + `seq` for telemetry messages).
+ * 2) Bind topic->message in topic_registry.h.
+ * 3) Add channel default in src/channels.c.
+ * 4) Add encoder in telemetry_encode.c.
+ * 5) Publish data from a producer thread/stub.
+ */
+
 struct heartbeat_msg {
     uint32_t t_ms;
     uint32_t seq;
@@ -18,6 +29,23 @@ struct rc_command_msg {
     bool diff_lock;
     bool override_mode;
     bool connected;
+};
+
+struct servo_control_msg {
+    uint32_t t_ms;
+    uint32_t seq;
+    int8_t steering;
+    int8_t throttle;
+    bool high_gear;
+    bool front_diff;
+    bool rear_diff;
+    int8_t extra1;
+    int8_t extra2;
+};
+
+struct host_heartbeat_msg {
+    uint32_t t_ms;
+    uint32_t seq;
 };
 
 struct lsm6dsox_msg {

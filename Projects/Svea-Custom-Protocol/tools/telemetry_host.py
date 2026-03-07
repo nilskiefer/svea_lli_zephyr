@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import random
 import sys
 import time
 from typing import Any
@@ -88,6 +89,16 @@ def open_serial(port: str, baud: int, timeout: float) -> serial.Serial:
 
     ser.dtr = True
     return ser
+
+
+def parse_servo_cmd(text: str) -> tuple[int, int, int, int, int, int, int]:
+    parts = [p.strip() for p in text.split(",")]
+    if len(parts) != 7:
+        raise ValueError("servo command must have 7 comma-separated values")
+
+    values = tuple(int(p) for p in parts)
+    steering, throttle, high_gear, front_diff, rear_diff, extra1, extra2 = values
+    return steering, throttle, high_gear, front_diff, rear_diff, extra1, extra2
 
 
 def format_msg(msg: dict[str, Any]) -> str:
@@ -199,6 +210,14 @@ def main() -> int:
     parser.add_argument("--summary-only", action="store_true", help="Only print periodic frequency table")
     parser.add_argument("--pretty", action="store_true", help="Use rich table output if rich is installed")
     parser.add_argument("--list-ports", action="store_true", help="List likely serial ports and exit")
+    parser.add_argument(
+        "--tx-servo",
+        help="Send host->MCU SERVO command values: steering,throttle,high_gear,front_diff,rear_diff,extra1,extra2",
+    )
+    parser.add_argument("--tx-servo-random", action="store_true", help="Randomize SERVO values on each send")
+    parser.add_argument("--tx-random-bools", action="store_true", help="Randomize high_gear/front_diff/rear_diff")
+    parser.add_argument("--tx-servo-rate", type=float, default=50.0, help="SERVO send rate in Hz (default: 50)")
+    parser.add_argument("--tx-heartbeat-rate", type=float, default=10.0, help="Host heartbeat send rate in Hz (default: 10)")
     args = parser.parse_args()
 
     if args.encoding == "cbor" and cbor2 is None:
@@ -234,6 +253,25 @@ def main() -> int:
     prev_per_topic: dict[str, int] = {}
     start_ts = time.monotonic()
     last_stat = start_ts
+    next_servo_tx = start_ts
+    next_hb_tx = start_ts
+    tx_servo_seq = 0
+    tx_hb_seq = 0
+    tx_servo_values: tuple[int, int, int, int, int, int, int] | None = None
+
+    if args.tx_servo:
+        try:
+            tx_servo_values = parse_servo_cmd(args.tx_servo)
+        except ValueError as exc:
+            print(f"Invalid --tx-servo: {exc}")
+            return 2
+
+    if args.tx_servo_random:
+        if tx_servo_values is None:
+            tx_servo_values = (0, 0, 0, 0, 0, 0, 0)
+
+    servo_period = 1.0 / args.tx_servo_rate if args.tx_servo_rate > 0 else 0.0
+    hb_period = 1.0 / args.tx_heartbeat_rate if args.tx_heartbeat_rate > 0 else 0.0
 
     def maybe_print_stats(now: float) -> None:
         nonlocal prev_total, prev_per_topic, last_stat
@@ -263,12 +301,45 @@ def main() -> int:
         else:
             print(format_msg(msg))
 
+    def maybe_send_host_commands(now: float) -> None:
+        nonlocal next_servo_tx, next_hb_tx, tx_servo_seq, tx_hb_seq
+
+        if tx_servo_values is not None and servo_period > 0 and now >= next_servo_tx:
+            steering, throttle, high_gear, front_diff, rear_diff, extra1, extra2 = tx_servo_values
+            if args.tx_servo_random:
+                steering = random.randint(-100, 100)
+                throttle = random.randint(-100, 100)
+                extra1 = random.randint(-100, 100)
+                extra2 = random.randint(-100, 100)
+                if args.tx_random_bools:
+                    high_gear = random.randint(0, 1)
+                    front_diff = random.randint(0, 1)
+                    rear_diff = random.randint(0, 1)
+            line = (
+                f"SERVO {tx_servo_seq} {steering} {throttle} {high_gear} "
+                f"{front_diff} {rear_diff} {extra1} {extra2}\n"
+            )
+            ser.write(line.encode("ascii"))
+            tx_servo_seq += 1
+            next_servo_tx += servo_period
+            if now > next_servo_tx + servo_period:
+                next_servo_tx = now + servo_period
+
+        if hb_period > 0 and now >= next_hb_tx:
+            line = f"HB {tx_hb_seq}\n"
+            ser.write(line.encode("ascii"))
+            tx_hb_seq += 1
+            next_hb_tx += hb_period
+            if now > next_hb_tx + hb_period:
+                next_hb_tx = now + hb_period
+
     try:
         if args.encoding == "json":
             while True:
                 line = ser.readline()
                 now = time.monotonic()
                 maybe_print_stats(now)
+                maybe_send_host_commands(now)
 
                 if not line:
                     continue
@@ -292,6 +363,7 @@ def main() -> int:
             chunk = ser.read(256)
             now = time.monotonic()
             maybe_print_stats(now)
+            maybe_send_host_commands(now)
 
             if not chunk:
                 continue
