@@ -99,14 +99,27 @@ def format_msg(msg: dict[str, Any]) -> str:
         return (
             f"lsm6  t={t_ms:>8} seq={seq:>6} "
             f"a=({msg.get('ax_mg', '-'):>5},{msg.get('ay_mg', '-'):>5},{msg.get('az_mg', '-'):>5}) mg "
-            f"g=({msg.get('gx_mdps', '-'):>6},{msg.get('gy_mdps', '-'):>6},{msg.get('gz_mdps', '-'):>6}) mdps"
+            f"g=({msg.get('gx_mdps', '-'):>6},{msg.get('gy_mdps', '-'):>6},{msg.get('gz_mdps', '-'):>6}) mdps "
+            f"T={msg.get('temp_cdeg', '-'):>5} cdeg"
         )
     if topic == "ads1115":
-        return f"ads   t={t_ms:>8} seq={seq:>6} AIN0={msg.get('ain0_mv', '-'):>6} mV"
-    if topic.startswith("ina3221") or topic.startswith("ina226"):
         return (
-            f"{topic:7} t={t_ms:>8} seq={seq:>6} "
+            f"ads   t={t_ms:>8} seq={seq:>6} "
+            f"AIN=[{msg.get('ain0_mv', '-'):>5},{msg.get('ain1_mv', '-'):>5},"
+            f"{msg.get('ain2_mv', '-'):>5},{msg.get('ain3_mv', '-'):>5}] mV"
+        )
+    if topic.startswith("ina3221"):
+        return (
+            f"{topic:8} t={t_ms:>8} seq={seq:>6} "
+            f"ESC=({msg.get('esc_bus_mv', '-'):>5}mV,{msg.get('esc_current_ma', '-'):>5}mA,{msg.get('esc_power_mw', '-'):>6}mW) "
+            f"12V=({msg.get('v12_bus_mv', '-'):>5}mV,{msg.get('v12_current_ma', '-'):>5}mA,{msg.get('v12_power_mw', '-'):>6}mW) "
+            f"5V=({msg.get('v5_bus_mv', '-'):>5}mV,{msg.get('v5_current_ma', '-'):>5}mA,{msg.get('v5_power_mw', '-'):>6}mW)"
+        )
+    if topic.startswith("ina226"):
+        return (
+            f"{topic:8} t={t_ms:>8} seq={seq:>6} "
             f"Vbus={msg.get('bus_mv', '-'):>6} mV "
+            f"Vshunt={msg.get('shunt_uv', '-'):>6} uV "
             f"I={msg.get('current_ma', '-'):>6} mA "
             f"P={msg.get('power_mw', '-'):>7} mW"
         )
@@ -116,7 +129,11 @@ def format_msg(msg: dict[str, Any]) -> str:
             f"Vpack={msg.get('pack_mv', '-'):>6} mV "
             f"Ipack={msg.get('pack_ma', '-'):>6} mA "
             f"SoC={msg.get('soc_deci_pct', '-'):>4} d% "
-            f"T={msg.get('temp_cdeg', '-'):>5} cdeg"
+            f"T={msg.get('temp_cdeg', '-'):>5} cdeg "
+            f"cell(min/avg/max)=({msg.get('cell_min_mv', '-'):>4}/"
+            f"{msg.get('cell_avg_mv', '-'):>4}/"
+            f"{msg.get('cell_max_mv', '-'):>4})mV "
+            f"flags=0x{int(msg.get('error_flags', 0)) & 0xFFFFFFFF:08X}"
         )
     return json.dumps(msg, separators=(",", ":"))
 

@@ -7,6 +7,7 @@
 
 ZBUS_OBS_DECLARE(uart_pub_sub);
 
+ZBUS_CHAN_DECLARE(heartbeat_chan);
 ZBUS_CHAN_DECLARE(lsm6dsox_chan);
 ZBUS_CHAN_DECLARE(ads1115_chan);
 ZBUS_CHAN_DECLARE(ina3221_a_chan);

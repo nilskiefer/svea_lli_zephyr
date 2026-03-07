@@ -4,6 +4,14 @@
 
 ZBUS_SUBSCRIBER_DEFINE(uart_pub_sub, 256);
 
+ZBUS_CHAN_DEFINE(heartbeat_chan,
+                 struct heartbeat_msg,
+                 NULL,
+                 NULL,
+                 ZBUS_OBSERVERS(uart_pub_sub),
+                 ZBUS_MSG_INIT(.t_ms = 0,
+                               .seq = 0));
+
 ZBUS_CHAN_DEFINE(lsm6dsox_chan,
                  struct lsm6dsox_msg,
                  NULL,
@@ -16,7 +24,8 @@ ZBUS_CHAN_DEFINE(lsm6dsox_chan,
                                .az_mg = 0,
                                .gx_mdps = 0,
                                .gy_mdps = 0,
-                               .gz_mdps = 0));
+                               .gz_mdps = 0,
+                               .temp_cdeg = 0));
 
 ZBUS_CHAN_DEFINE(ads1115_chan,
                  struct ads1115_msg,
@@ -25,7 +34,10 @@ ZBUS_CHAN_DEFINE(ads1115_chan,
                  ZBUS_OBSERVERS(uart_pub_sub),
                  ZBUS_MSG_INIT(.t_ms = 0,
                                .seq = 0,
-                               .ain0_mv = 0));
+                               .ain0_mv = 0,
+                               .ain1_mv = 0,
+                               .ain2_mv = 0,
+                               .ain3_mv = 0));
 
 ZBUS_CHAN_DEFINE(ina3221_a_chan,
                  struct ina3221_msg,
@@ -34,9 +46,15 @@ ZBUS_CHAN_DEFINE(ina3221_a_chan,
                  ZBUS_OBSERVERS(uart_pub_sub),
                  ZBUS_MSG_INIT(.t_ms = 0,
                                .seq = 0,
-                               .bus_mv = 0,
-                               .current_ma = 0,
-                               .power_mw = 0));
+                               .esc_bus_mv = 0,
+                               .esc_current_ma = 0,
+                               .esc_power_mw = 0,
+                               .v12_bus_mv = 0,
+                               .v12_current_ma = 0,
+                               .v12_power_mw = 0,
+                               .v5_bus_mv = 0,
+                               .v5_current_ma = 0,
+                               .v5_power_mw = 0));
 
 ZBUS_CHAN_DEFINE(ina3221_b_chan,
                  struct ina3221_msg,
@@ -45,9 +63,15 @@ ZBUS_CHAN_DEFINE(ina3221_b_chan,
                  ZBUS_OBSERVERS(uart_pub_sub),
                  ZBUS_MSG_INIT(.t_ms = 0,
                                .seq = 0,
-                               .bus_mv = 0,
-                               .current_ma = 0,
-                               .power_mw = 0));
+                               .esc_bus_mv = 0,
+                               .esc_current_ma = 0,
+                               .esc_power_mw = 0,
+                               .v12_bus_mv = 0,
+                               .v12_current_ma = 0,
+                               .v12_power_mw = 0,
+                               .v5_bus_mv = 0,
+                               .v5_current_ma = 0,
+                               .v5_power_mw = 0));
 
 ZBUS_CHAN_DEFINE(bq76942_chan,
                  struct bq76942_msg,
@@ -59,7 +83,11 @@ ZBUS_CHAN_DEFINE(bq76942_chan,
                                .pack_mv = 0,
                                .pack_ma = 0,
                                .soc_deci_pct = 0,
-                               .temp_cdeg = 0));
+                               .temp_cdeg = 0,
+                               .cell_min_mv = 0,
+                               .cell_avg_mv = 0,
+                               .cell_max_mv = 0,
+                               .error_flags = 0));
 
 ZBUS_CHAN_DEFINE(ina226_a_chan,
                  struct ina226_msg,
@@ -69,6 +97,7 @@ ZBUS_CHAN_DEFINE(ina226_a_chan,
                  ZBUS_MSG_INIT(.t_ms = 0,
                                .seq = 0,
                                .bus_mv = 0,
+                               .shunt_uv = 0,
                                .current_ma = 0,
                                .power_mw = 0));
 
@@ -80,5 +109,6 @@ ZBUS_CHAN_DEFINE(ina226_b_chan,
                  ZBUS_MSG_INIT(.t_ms = 0,
                                .seq = 0,
                                .bus_mv = 0,
+                               .shunt_uv = 0,
                                .current_ma = 0,
                                .power_mw = 0));
