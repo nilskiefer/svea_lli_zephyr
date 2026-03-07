@@ -278,6 +278,7 @@ static uint8_t topic_priority[TOPIC_SLOT_COUNT] = {
 #undef TOPIC_PRIORITY_ENTRY
 
 static bool encode_heartbeat_msg(struct cbor_buf *b, const char *topic, const void *msg);
+static bool encode_rc_command_msg(struct cbor_buf *b, const char *topic, const void *msg);
 static bool encode_lsm6dsox_msg(struct cbor_buf *b, const char *topic, const void *msg);
 static bool encode_ads1115_msg(struct cbor_buf *b, const char *topic, const void *msg);
 static bool encode_ina3221_msg(struct cbor_buf *b, const char *topic, const void *msg);
@@ -354,6 +355,21 @@ static bool encode_heartbeat_msg(struct cbor_buf *b, const char *topic, const vo
            cbor_put_tstr(b, "topic") && cbor_put_tstr(b, topic) &&
            cbor_put_tstr(b, "t_ms") && cbor_put_uint32(b, m->t_ms) &&
            cbor_put_tstr(b, "seq") && cbor_put_uint32(b, m->seq);
+}
+
+static bool encode_rc_command_msg(struct cbor_buf *b, const char *topic, const void *msg) {
+    const struct rc_command_msg *m = msg;
+
+    return cbor_put_map_start(b, 9U) &&
+           cbor_put_tstr(b, "topic") && cbor_put_tstr(b, topic) &&
+           cbor_put_tstr(b, "t_ms") && cbor_put_uint32(b, m->t_ms) &&
+           cbor_put_tstr(b, "seq") && cbor_put_uint32(b, m->seq) &&
+           cbor_put_tstr(b, "steering") && cbor_put_int32(b, m->steering) &&
+           cbor_put_tstr(b, "throttle") && cbor_put_int32(b, m->throttle) &&
+           cbor_put_tstr(b, "high_gear") && cbor_put_uint32(b, m->high_gear) &&
+           cbor_put_tstr(b, "diff_lock") && cbor_put_uint32(b, m->diff_lock) &&
+           cbor_put_tstr(b, "override_mode") && cbor_put_uint32(b, m->override_mode) &&
+           cbor_put_tstr(b, "connected") && cbor_put_uint32(b, m->connected);
 }
 
 static bool encode_lsm6dsox_msg(struct cbor_buf *b, const char *topic, const void *msg) {

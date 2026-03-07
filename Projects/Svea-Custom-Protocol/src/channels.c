@@ -12,6 +12,20 @@ ZBUS_CHAN_DEFINE(heartbeat_chan,
                  ZBUS_MSG_INIT(.t_ms = 0,
                                .seq = 0));
 
+ZBUS_CHAN_DEFINE(rc_command_chan,
+                 struct rc_command_msg,
+                 NULL,
+                 NULL,
+                 ZBUS_OBSERVERS(uart_pub_sub),
+                 ZBUS_MSG_INIT(.t_ms = 0,
+                               .seq = 0,
+                               .steering = 0,
+                               .throttle = 0,
+                               .high_gear = 0,
+                               .diff_lock = 0,
+                               .override_mode = 0,
+                               .connected = 0));
+
 ZBUS_CHAN_DEFINE(lsm6dsox_chan,
                  struct lsm6dsox_msg,
                  NULL,

@@ -108,6 +108,13 @@ def format_msg(msg: dict[str, Any]) -> str:
             f"AIN=[{msg.get('ain0_mv', '-'):>5},{msg.get('ain1_mv', '-'):>5},"
             f"{msg.get('ain2_mv', '-'):>5},{msg.get('ain3_mv', '-'):>5}] mV"
         )
+    if topic == "rc_command":
+        return (
+            f"rc    t={t_ms:>8} seq={seq:>6} "
+            f"steer={msg.get('steering', '-'):>4} thr={msg.get('throttle', '-'):>4} "
+            f"gear={msg.get('high_gear', '-')} diff={msg.get('diff_lock', '-')} "
+            f"ovr={msg.get('override_mode', '-')} link={msg.get('connected', '-')}"
+        )
     if topic.startswith("ina3221"):
         return (
             f"{topic:8} t={t_ms:>8} seq={seq:>6} "

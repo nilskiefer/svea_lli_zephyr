@@ -8,6 +8,17 @@ struct heartbeat_msg {
     uint32_t seq;
 };
 
+struct rc_command_msg {
+    uint32_t t_ms;
+    uint32_t seq;
+    int32_t steering;
+    int32_t throttle;
+    uint32_t high_gear;
+    uint32_t diff_lock;
+    uint32_t override_mode;
+    uint32_t connected;
+};
+
 struct lsm6dsox_msg {
     uint32_t t_ms;
     uint32_t seq;

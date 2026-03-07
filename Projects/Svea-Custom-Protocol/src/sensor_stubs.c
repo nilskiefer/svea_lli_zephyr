@@ -5,12 +5,13 @@
 
 LOG_MODULE_REGISTER(sensor_stubs, LOG_LEVEL_INF);
 
-#define LSM6DSOX_PERIOD_MS 1
+#define LSM6DSOX_PERIOD_MS 1000 / 200
 #define ADS1115_PERIOD_MS 10
 #define INA3221_PERIOD_MS 25
 #define BQ76942_PERIOD_MS 100
 #define INA226_PERIOD_MS 20
 #define HEARTBEAT_PERIOD_MS 100
+#define RC_COMMAND_PERIOD_MS 10
 
 #define STUB_STACK_SIZE 1024
 #define STUB_THREAD_PRIO 4
@@ -21,6 +22,7 @@ static K_THREAD_STACK_DEFINE(ina3221_stack, STUB_STACK_SIZE);
 static K_THREAD_STACK_DEFINE(bq76942_stack, STUB_STACK_SIZE);
 static K_THREAD_STACK_DEFINE(ina226_stack, STUB_STACK_SIZE);
 static K_THREAD_STACK_DEFINE(heartbeat_stack, STUB_STACK_SIZE);
+static K_THREAD_STACK_DEFINE(rc_command_stack, STUB_STACK_SIZE);
 
 static struct k_thread lsm6dsox_thread;
 static struct k_thread ads1115_thread;
@@ -28,6 +30,24 @@ static struct k_thread ina3221_thread;
 static struct k_thread bq76942_thread;
 static struct k_thread ina226_thread;
 static struct k_thread heartbeat_thread;
+static struct k_thread rc_command_thread;
+
+/*
+ * Periodic pacing with bounded catch-up:
+ * if a thread falls behind by >1 period, resync to now+period instead of
+ * trying to replay missed periods and hogging CPU.
+ */
+static void sleep_until_next_period(int64_t *next_deadline_ms, int32_t period_ms) {
+    int64_t now = k_uptime_get();
+    int64_t next = *next_deadline_ms + period_ms;
+
+    if (now > (next + period_ms)) {
+        next = now + period_ms;
+    }
+
+    *next_deadline_ms = next;
+    k_sleep(K_TIMEOUT_ABS_MS(next));
+}
 
 static void lsm6dsox_thread_fn(void *a, void *b, void *c) {
     ARG_UNUSED(a);
@@ -35,6 +55,7 @@ static void lsm6dsox_thread_fn(void *a, void *b, void *c) {
     ARG_UNUSED(c);
 
     uint32_t seq = 0;
+    int64_t next_deadline_ms = k_uptime_get();
 
     while (1) {
         struct lsm6dsox_msg msg;
@@ -52,7 +73,7 @@ static void lsm6dsox_thread_fn(void *a, void *b, void *c) {
 
         (void)zbus_chan_pub(&lsm6dsox_chan, &msg, K_MSEC(5));
         seq++;
-        k_sleep(K_MSEC(LSM6DSOX_PERIOD_MS));
+        sleep_until_next_period(&next_deadline_ms, LSM6DSOX_PERIOD_MS);
     }
 }
 
@@ -62,6 +83,7 @@ static void ads1115_thread_fn(void *a, void *b, void *c) {
     ARG_UNUSED(c);
 
     uint32_t seq = 0;
+    int64_t next_deadline_ms = k_uptime_get();
 
     while (1) {
         struct ads1115_msg msg;
@@ -76,7 +98,7 @@ static void ads1115_thread_fn(void *a, void *b, void *c) {
 
         (void)zbus_chan_pub(&ads1115_chan, &msg, K_MSEC(5));
         seq++;
-        k_sleep(K_MSEC(ADS1115_PERIOD_MS));
+        sleep_until_next_period(&next_deadline_ms, ADS1115_PERIOD_MS);
     }
 }
 
@@ -86,6 +108,7 @@ static void ina3221_thread_fn(void *a, void *b, void *c) {
     ARG_UNUSED(c);
 
     uint32_t seq = 0;
+    int64_t next_deadline_ms = k_uptime_get();
 
     while (1) {
         int32_t ripple = (int32_t)(seq % 120U) - 60;
@@ -120,7 +143,7 @@ static void ina3221_thread_fn(void *a, void *b, void *c) {
         (void)zbus_chan_pub(&ina3221_b_chan, &b_msg, K_MSEC(5));
 
         seq++;
-        k_sleep(K_MSEC(INA3221_PERIOD_MS));
+        sleep_until_next_period(&next_deadline_ms, INA3221_PERIOD_MS);
     }
 }
 
@@ -130,6 +153,7 @@ static void bq76942_thread_fn(void *a, void *b, void *c) {
     ARG_UNUSED(c);
 
     uint32_t seq = 0;
+    int64_t next_deadline_ms = k_uptime_get();
 
     while (1) {
         struct bq76942_msg msg;
@@ -148,7 +172,7 @@ static void bq76942_thread_fn(void *a, void *b, void *c) {
 
         (void)zbus_chan_pub(&bq76942_chan, &msg, K_MSEC(5));
         seq++;
-        k_sleep(K_MSEC(BQ76942_PERIOD_MS));
+        sleep_until_next_period(&next_deadline_ms, BQ76942_PERIOD_MS);
     }
 }
 
@@ -158,6 +182,7 @@ static void ina226_thread_fn(void *a, void *b, void *c) {
     ARG_UNUSED(c);
 
     uint32_t seq = 0;
+    int64_t next_deadline_ms = k_uptime_get();
 
     while (1) {
         int32_t ripple = (int32_t)(seq % 80U) - 40;
@@ -182,7 +207,7 @@ static void ina226_thread_fn(void *a, void *b, void *c) {
         (void)zbus_chan_pub(&ina226_b_chan, &b_msg, K_MSEC(5));
 
         seq++;
-        k_sleep(K_MSEC(INA226_PERIOD_MS));
+        sleep_until_next_period(&next_deadline_ms, INA226_PERIOD_MS);
     }
 }
 
@@ -192,13 +217,41 @@ static void heartbeat_thread_fn(void *a, void *b, void *c) {
     ARG_UNUSED(c);
 
     uint32_t seq = 0;
+    int64_t next_deadline_ms = k_uptime_get();
 
     while (1) {
         struct heartbeat_msg msg;
         msg.t_ms = (uint32_t)k_uptime_get();
         msg.seq = seq++;
         (void)zbus_chan_pub(&heartbeat_chan, &msg, K_MSEC(5));
-        k_sleep(K_MSEC(HEARTBEAT_PERIOD_MS));
+        sleep_until_next_period(&next_deadline_ms, HEARTBEAT_PERIOD_MS);
+    }
+}
+
+static void rc_command_thread_fn(void *a, void *b, void *c) {
+    ARG_UNUSED(a);
+    ARG_UNUSED(b);
+    ARG_UNUSED(c);
+
+    uint32_t seq = 0;
+    int64_t next_deadline_ms = k_uptime_get();
+
+    while (1) {
+        struct rc_command_msg msg;
+        int32_t phase = (int32_t)(seq % 256U) - 128;
+
+        msg.t_ms = (uint32_t)k_uptime_get();
+        msg.seq = seq;
+        msg.steering = phase;
+        msg.throttle = (int32_t)((seq % 200U) - 100);
+        msg.high_gear = (seq / 200U) % 2U;
+        msg.diff_lock = (seq / 150U) % 2U;
+        msg.override_mode = (seq / 300U) % 3U;      /* 0=ROS, 1=MUTE, 2=REMOTE */
+        msg.connected = ((seq / 500U) % 10U) != 9U; /* drop link briefly */
+
+        (void)zbus_chan_pub(&rc_command_chan, &msg, K_MSEC(5));
+        seq++;
+        sleep_until_next_period(&next_deadline_ms, RC_COMMAND_PERIOD_MS);
     }
 }
 
@@ -290,4 +343,19 @@ void heartbeat_stub_start(void) {
                     K_NO_WAIT);
     k_thread_name_set(&heartbeat_thread, "heartbeat_stub");
     LOG_INF("Heartbeat stub started (%d Hz)", 1000 / HEARTBEAT_PERIOD_MS);
+}
+
+void rc_command_stub_start(void) {
+    k_thread_create(&rc_command_thread,
+                    rc_command_stack,
+                    K_THREAD_STACK_SIZEOF(rc_command_stack),
+                    rc_command_thread_fn,
+                    NULL,
+                    NULL,
+                    NULL,
+                    STUB_THREAD_PRIO,
+                    0,
+                    K_NO_WAIT);
+    k_thread_name_set(&rc_command_thread, "rc_command_stub");
+    LOG_INF("RC command stub started (%d Hz)", 1000 / RC_COMMAND_PERIOD_MS);
 }

@@ -23,6 +23,7 @@ int main(void)
     bq76942_stub_start();
     ina226_stub_start();
     heartbeat_stub_start();
+    rc_command_stub_start();
 
     while (1) {
         k_sleep(K_SECONDS(1));
